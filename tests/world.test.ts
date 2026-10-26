@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { canOccupy, moveWithCollisions } from "../src/lib/collisions";
 import { DOORS, INITIAL_SPAWN, SPAWNS, WALK, floorHeight, isNearDoor, locationName, type SceneId } from "../src/lib/world";
 import { clearInput, createInput } from "../src/lib/input";
+import { FOLLOW_CAMERA, cameraPointIsClear, clipCameraBoom, followCameraPose } from "../src/lib/follow-camera";
+import { CAMEO, cameoRoute, createCameo, interactionTarget, resetCameo } from "../src/lib/cameo";
+import { turnTowards } from "../src/lib/characters";
 
 describe("safe spawns and door interaction", () => {
   it("starts in the square, with a clear view and no collision", () => {
@@ -140,5 +143,80 @@ describe("floor alignment and input lifecycle", () => {
     assert.equal(locationName("exterior", -54, 20), "Duna-part");
     assert.equal(locationName("interior", 0, -24), "Aranyfolyosó");
     assert.equal(locationName("interior", 0, -50), "Díszterem");
+  });
+});
+
+describe("third-person follow camera", () => {
+  it("follows behind and above the character on an open path", () => {
+    const pose = followCameraPose("exterior", 80, 0, 0, Math.PI / 2, FOLLOW_CAMERA.defaultPitch);
+    assert.ok(pose.position[0] > 84);
+    assert.ok(pose.position[1] > 1.9);
+    assert.ok(cameraPointIsClear("exterior", ...pose.position));
+  });
+  it("retracts at the outside door without crossing the Parliament wall", () => {
+    const pose = followCameraPose("exterior", 44.5, 1.44, 0, -Math.PI / 2, FOLLOW_CAMERA.defaultPitch);
+    assert.ok(pose.position[0] >= 42);
+    assert.ok(cameraPointIsClear("exterior", ...pose.position));
+  });
+  it("keeps a visible elevated view when the character backs against an interior wall", () => {
+    const pose = followCameraPose("interior", 13, 0, 0, Math.PI / 2, FOLLOW_CAMERA.defaultPitch);
+    assert.ok(pose.position[0] < 13.32);
+    assert.ok(pose.position[1] > 3.5);
+    assert.ok(cameraPointIsClear("interior", ...pose.position));
+  });
+  it("keeps orbit positions out of walls, floors, ceilings, and the river", () => {
+    const poses: { scene: SceneId; x: number; z: number }[] = [
+      { scene: "exterior", x: 80, z: 0 }, { scene: "exterior", x: -61.5, z: 25 },
+      { scene: "interior", x: 0, z: 0 }, { scene: "interior", x: 0, z: -24 },
+      { scene: "interior", x: 0, z: -40 }, { scene: "interior", x: 13, z: 0 },
+    ];
+    for (const p of poses) for (let angle = 0; angle < Math.PI * 2; angle += 0.2) {
+      for (const pitch of [FOLLOW_CAMERA.minPitch, 0, FOLLOW_CAMERA.defaultPitch, FOLLOW_CAMERA.maxPitch]) {
+        const pose = followCameraPose(p.scene, p.x, floorHeight(p.scene, p.x, p.z), p.z, angle, pitch);
+        assert.ok(cameraPointIsClear(p.scene, ...pose.position), `${p.scene} camera at ${angle}, ${pitch}`);
+      }
+    }
+  });
+  it("clips an orbit segment before cutting through a corridor corner", () => {
+    const safe = clipCameraBoom("interior", [0, 3.6, -12], [7, 4.8, -18]);
+    assert.ok(safe[0] < 5);
+    assert.ok(cameraPointIsClear("interior", ...safe));
+  });
+  it("turns the avatar the short way across the angle wrap", () => {
+    assert.ok(Math.abs(turnTowards(Math.PI - 0.02, -Math.PI + 0.02, 0.5) - Math.PI) < 1e-8);
+  });
+});
+
+describe("harmless Parliament cameo", () => {
+  it("keeps the complete slow walking loop clear of chamber furniture", () => {
+    for (let time = 0; time <= 46; time += 0.1) {
+      const pose = cameoRoute(time);
+      assert.ok(canOccupy("interior", pose.x, pose.z, CAMEO.radius));
+      assert.equal(floorHeight("interior", pose.x, pose.z), 2.4);
+    }
+    assert.ok(Math.hypot(cameoRoute(0).x - cameoRoute(5).x, cameoRoute(0).z - cameoRoute(5).z) > 1);
+  });
+  it("uses proximity-guarded, mutually exclusive door and speech interactions", () => {
+    const cameo = createCameo();
+    assert.equal(interactionTarget("exterior", 44.5, 0, cameo), "door");
+    assert.equal(interactionTarget("interior", 0, 8.5, cameo), "door");
+    assert.equal(interactionTarget("interior", cameo.x, cameo.z + 2.1, cameo), "cameo");
+    assert.equal(interactionTarget("interior", 0, 6.5, cameo), null);
+    assert.equal(interactionTarget("exterior", cameo.x, cameo.z, cameo), null);
+    cameo.greetingRemaining = CAMEO.greetingDuration;
+    assert.equal(interactionTarget("interior", cameo.x, cameo.z + 2.1, cameo), null);
+  });
+  it("prevents the player passing through the NPC at the current walking speed", () => {
+    const cameo = createCameo();
+    const next = moveWithCollisions("interior", cameo.x, cameo.z + 3, 0, -WALK.speed, [{ kind: "circle", x: cameo.x, z: cameo.z, radius: CAMEO.radius }]);
+    assert.ok(next.z >= cameo.z + WALK.radius + CAMEO.radius - 0.001);
+  });
+  it("resets dialogue and walking state cleanly on scene changes", () => {
+    const cameo = createCameo();
+    cameo.greetingRemaining = 3;
+    cameo.pathTime = 5;
+    cameo.wave = 1;
+    resetCameo(cameo);
+    assert.deepEqual(cameo, createCameo());
   });
 });

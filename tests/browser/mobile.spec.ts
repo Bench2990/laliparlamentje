@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import type {} from "../../src/components/experience/SceneTestBridge";
+import { CAMEO } from "../../src/lib/cameo";
 
 async function checkMobileLayout(page: Page) {
   const viewport = page.viewportSize()!;
@@ -40,6 +41,9 @@ for (const orientation of ["portrait", "landscape"] as const) {
     const ly = look.y + look.height / 2;
     const cdp = await context.newCDPSession(page);
     const start = await page.evaluate(() => window.__parliamentTest!.snapshot());
+    expect(start.avatar.visible).toBe(true);
+    expect(start.camera.distance).toBeGreaterThan(3);
+    expect(start.camera.clear).toBe(true);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, x, y }, { id: 2, x: lx, y: ly }] });
     const touchDown = await page.evaluate(() => window.__parliamentTest!.snapshot());
     expect(Math.abs(touchDown.yaw - start.yaw)).toBeLessThan(0.001);
@@ -50,6 +54,8 @@ for (const orientation of ["portrait", "landscape"] as const) {
     expect(Math.abs(during.yaw - start.yaw)).toBeGreaterThan(0.05);
     expect(Math.abs(during.pitch - start.pitch)).toBeGreaterThan(0.01);
     expect(during.moveY).toBeGreaterThan(0.5);
+    expect(during.avatar.walkBlend).toBeGreaterThan(0.2);
+    expect(during.camera.clear).toBe(true);
     expect(during.calls).toBeLessThan(80);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
     await page.waitForTimeout(350);
@@ -57,6 +63,12 @@ for (const orientation of ["portrait", "landscape"] as const) {
     expect(stopped.moveX).toBe(0);
     expect(stopped.moveY).toBe(0);
     await page.screenshot({ path: `artifacts/mobile-${orientation}-exploring.png` });
+
+    await page.evaluate(() => window.__parliamentTest!.place(59, 0, Math.PI / 2, -0.4));
+    const sign = (await page.evaluate(() => window.__parliamentTest!.snapshot())).sign;
+    expect(sign?.text).toBe("Lali parlamentje");
+    expect(sign?.inView).toBe(true);
+    await page.screenshot({ path: `artifacts/mobile-${orientation}-sign.png` });
 
     await page.evaluate(() => window.__parliamentTest!.place(44.5, 0, Math.PI / 2));
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 3, x, y }] });
@@ -75,6 +87,12 @@ for (const orientation of ["portrait", "landscape"] as const) {
     await expect(page.locator('[data-scene="interior"][data-transition="idle"]')).toBeVisible();
     await expect(page.locator(".scene-transition")).toHaveCSS("opacity", "0");
     await page.screenshot({ path: `artifacts/mobile-${orientation}-interior.png` });
+    expect((await page.evaluate(() => window.__parliamentTest!.snapshot())).avatar.visible).toBe(true);
+    await page.evaluate(() => { const n = window.__parliamentTest!.snapshot().cameo!; return window.__parliamentTest!.place(n.x, n.z + 2.1); });
+    await page.getByRole("button", { name: "Megszólítás", exact: true }).tap();
+    await expect(page.getByTestId("cameo-speech")).toContainText(CAMEO.line);
+    await expect.poll(async () => (await page.evaluate(() => window.__parliamentTest!.snapshot())).cameo!.wave).toBeGreaterThan(1.2);
+    await page.screenshot({ path: `artifacts/mobile-${orientation}-cameo.png` });
     await page.evaluate(() => window.__parliamentTest!.place(0, 8.6, Math.PI));
     await page.getByRole("button", { name: "Kilépés", exact: true }).tap();
     await expect(page.locator('[data-scene="exterior"][data-transition="idle"]')).toBeVisible();

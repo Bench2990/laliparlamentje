@@ -21,7 +21,7 @@ export default function MobileLookControls({ input, enabled }: { input: InputSta
     pointer.current = null;
   };
   return (
-    <div className="mobile-look" aria-label="Húzd az ujjad a körbenézéshez" data-testid="touch-look"
+    <div className="mobile-look" aria-label="Húzd az ujjad a kamera forgatásához" data-testid="touch-look"
       onPointerDown={(event) => {
         if (!enabled || pointer.current !== null) return;
         event.preventDefault();
@@ -37,7 +37,7 @@ export default function MobileLookControls({ input, enabled }: { input: InputSta
         last.current = { x: event.clientX, y: event.clientY };
       }}
       onPointerUp={release} onPointerCancel={release} onLostPointerCapture={() => { pointer.current = null; }}>
-      <div className="look-hint"><LookIcon /><span className="touch-caption">KÖRBENÉZÉS</span></div>
+      <div className="look-hint"><LookIcon /><span className="touch-caption">KAMERA</span></div>
     </div>
   );
 }

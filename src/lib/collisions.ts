@@ -69,7 +69,7 @@ function insideInterior(x: number, z: number): boolean {
   );
 }
 
-export function canOccupy(scene: SceneId, x: number, z: number, radius: number = WALK.radius): boolean {
+export function canOccupy(scene: SceneId, x: number, z: number, radius: number = WALK.radius, extra: readonly CircleCollider[] = []): boolean {
   if (scene === "exterior") {
     if (x < -62 + radius || x > 171 - radius || z < -147 + radius || z > 147 - radius) return false;
   } else {
@@ -90,14 +90,17 @@ export function canOccupy(scene: SceneId, x: number, z: number, radius: number =
       if ((x - nearestX) ** 2 + (z - nearestZ) ** 2 < radius ** 2) return false;
     }
   }
+  for (const c of extra) {
+    if ((x - c.x) ** 2 + (z - c.z) ** 2 < (radius + c.radius) ** 2) return false;
+  }
   return true;
 }
 
-export function moveWithCollisions(scene: SceneId, x: number, z: number, dx: number, dz: number) {
+export function moveWithCollisions(scene: SceneId, x: number, z: number, dx: number, dz: number, extra: readonly CircleCollider[] = []) {
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.18));
   for (let i = 0; i < steps; i++) {
-    if (canOccupy(scene, x + dx / steps, z)) x += dx / steps;
-    if (canOccupy(scene, x, z + dz / steps)) z += dz / steps;
+    if (canOccupy(scene, x + dx / steps, z, WALK.radius, extra)) x += dx / steps;
+    if (canOccupy(scene, x, z + dz / steps, WALK.radius, extra)) z += dz / steps;
   }
   return { x, z };
 }

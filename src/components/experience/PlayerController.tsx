@@ -1,35 +1,48 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import * as THREE from "three";
 import { clearInput, type InputState } from "@/lib/input";
-import { moveWithCollisions } from "@/lib/collisions";
-import { WALK, floorHeight, isNearDoor, locationName, type SceneId, type Spawn } from "@/lib/world";
+import { moveWithCollisions, type CircleCollider } from "@/lib/collisions";
+import { WALK, floorHeight, locationName, type SceneId, type Spawn } from "@/lib/world";
+import { CAMEO, interactionTarget, type CameoState, type InteractionTarget } from "@/lib/cameo";
+import { FOLLOW_CAMERA, clipCameraBoom, followCameraPose } from "@/lib/follow-camera";
+import { turnTowards } from "@/lib/characters";
+import CharacterModel from "@/components/characters/CharacterModel";
 
 type Props = {
   scene: SceneId;
   spawn: Spawn;
   input: InputState;
+  cameo: CameoState;
+  started: boolean;
   active: boolean;
   dragLook: boolean;
-  onStatus: (nearDoor: boolean, location: string) => void;
+  onStatus: (target: InteractionTarget, location: string) => void;
 };
 
-export default function PlayerController({ scene, spawn, input, active, dragLook, onStatus }: Props) {
+export default function PlayerController({ scene, spawn, input, cameo, started, active, dragLook, onStatus }: Props) {
   const { camera, gl } = useThree();
-  const angles = useRef({ yaw: spawn.yaw, pitch: spawn.pitch });
   const velocity = useRef({ x: 0, z: 0 });
-  const report = useRef({ elapsed: 0, near: false, location: "" });
+  const report = useRef<{ elapsed: number; target: InteractionTarget; location: string }>({ elapsed: 0, target: null, location: "" });
+  const cameraDestination = useMemo(() => new THREE.Vector3(), []);
+  const npcCollider = useMemo<CircleCollider[]>(() => [{ kind: "circle", x: cameo.x, z: cameo.z, radius: CAMEO.radius }], [cameo]);
 
   useLayoutEffect(() => {
     camera.rotation.order = "YXZ";
     camera.position.set(...spawn.position);
-    angles.current = { yaw: spawn.yaw, pitch: spawn.pitch };
     camera.rotation.set(spawn.pitch, spawn.yaw, 0);
     input.x = spawn.position[0];
+    input.y = spawn.position[1] - WALK.eyeHeight;
     input.z = spawn.position[2];
+    input.yaw = spawn.yaw;
+    input.pitch = FOLLOW_CAMERA.defaultPitch;
+    input.facing = spawn.yaw + Math.PI;
+    input.walkBlend = input.walkPhase = 0;
+    input.snapCamera = true;
     velocity.current = { x: 0, z: 0 };
-    report.current = { elapsed: 1, near: false, location: "" };
+    report.current = { elapsed: 1, target: null, location: "" };
     clearInput(input);
   }, [scene, spawn, camera, input]);
 
@@ -78,41 +91,59 @@ export default function PlayerController({ scene, spawn, input, active, dragLook
 
   useFrame((_, frameDelta) => {
     const dt = Math.min(frameDelta, 0.1);
+    if (input.snapCamera) velocity.current = { x: 0, z: 0 };
+    let travelled = 0;
     if (active) {
-      const a = angles.current;
-      a.yaw -= input.lookX;
-      a.pitch = Math.max(-WALK.maxPitch, Math.min(WALK.maxPitch, a.pitch - input.lookY));
+      input.yaw -= input.lookX;
+      input.pitch = Math.max(FOLLOW_CAMERA.minPitch, Math.min(FOLLOW_CAMERA.maxPitch, input.pitch + input.lookY));
       input.lookX = input.lookY = 0;
-      camera.rotation.set(a.pitch, a.yaw, 0);
       const keys = input.keys;
       let strafe = input.moveX + (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
       let forward = input.moveY + (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
       const magnitude = Math.hypot(strafe, forward);
       if (magnitude > 1) { strafe /= magnitude; forward /= magnitude; }
-      const targetX = (strafe * Math.cos(a.yaw) - forward * Math.sin(a.yaw)) * WALK.speed;
-      const targetZ = (-strafe * Math.sin(a.yaw) - forward * Math.cos(a.yaw)) * WALK.speed;
+      const targetX = (strafe * Math.cos(input.yaw) - forward * Math.sin(input.yaw)) * WALK.speed;
+      const targetZ = (-strafe * Math.sin(input.yaw) - forward * Math.cos(input.yaw)) * WALK.speed;
       const blend = 1 - Math.exp(-WALK.acceleration * dt);
       velocity.current.x += (targetX - velocity.current.x) * blend;
       velocity.current.z += (targetZ - velocity.current.z) * blend;
-      const next = moveWithCollisions(scene, camera.position.x, camera.position.z, velocity.current.x * dt, velocity.current.z * dt);
-      camera.position.x = next.x;
-      camera.position.z = next.z;
-      const height = floorHeight(scene, next.x, next.z) + WALK.eyeHeight;
-      camera.position.y += (height - camera.position.y) * (1 - Math.exp(-18 * dt));
+      npcCollider[0].x = cameo.x;
+      npcCollider[0].z = cameo.z;
+      const next = moveWithCollisions(scene, input.x, input.z, velocity.current.x * dt, velocity.current.z * dt, scene === "interior" ? npcCollider : undefined);
+      const dx = next.x - input.x;
+      const dz = next.z - input.z;
+      travelled = Math.hypot(dx, dz);
+      if (travelled > 0.0001) input.facing = turnTowards(input.facing, Math.atan2(dx, dz), 1 - Math.exp(-12 * dt));
       input.x = next.x;
+      input.y = floorHeight(scene, next.x, next.z);
       input.z = next.z;
+    }
+    const walking = dt > 0 ? Math.min(1, travelled / dt / 3.3) : 0;
+    input.walkBlend += (walking - input.walkBlend) * (1 - Math.exp(-12 * dt));
+    input.walkPhase += Math.min(travelled, dt * 3.3) * 3;
+    if (started) {
+      const pose = followCameraPose(scene, input.x, input.y, input.z, input.yaw, input.pitch);
+      if (input.snapCamera) {
+        camera.position.set(...pose.position);
+        input.snapCamera = false;
+      } else {
+        camera.position.lerp(cameraDestination.set(...pose.position), 1 - Math.exp(-FOLLOW_CAMERA.damping * dt));
+        const clipped = clipCameraBoom(scene, pose.target, [camera.position.x, camera.position.y, camera.position.z]);
+        camera.position.set(...clipped);
+      }
+      camera.lookAt(...pose.target);
     }
     report.current.elapsed += frameDelta;
     if (report.current.elapsed > 0.12) {
       report.current.elapsed = 0;
-      const near = isNearDoor(scene, input.x, input.z);
+      const target = interactionTarget(scene, input.x, input.z, cameo);
       const location = locationName(scene, input.x, input.z);
-      if (near !== report.current.near || location !== report.current.location) {
-        report.current.near = near;
+      if (target !== report.current.target || location !== report.current.location) {
+        report.current.target = target;
         report.current.location = location;
-        onStatus(near, location);
+        onStatus(target, location);
       }
     }
-  });
-  return null;
+  }, -2);
+  return <CharacterModel motion={input} variant="player" name="player-avatar" visible={started} />;
 }

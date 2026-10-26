@@ -13,9 +13,8 @@ export default function GameHUD({ location, mobile, interior, dragLook }: { loca
   return (
     <div className={`game-hud ${interior ? "hud-interior" : ""}`}>
       <div className="location-label"><PinIcon /><div><span>{interior ? "AZ ORSZÁGHÁZ BELSŐ TEREI" : "BUDAPEST, MAGYARORSZÁG"}</span><p aria-live="polite">{location}</p></div></div>
-      {!mobile && <div className="desktop-hint"><kbd>WASD</kbd> Mozgás <i />{dragLook ? "Kattintás és húzás – Körbenézés" : "Egér – Körbenézés"}<i /><kbd>Esc</kbd> Szünet</div>}
+      {!mobile && <div className="desktop-hint"><kbd>WASD</kbd> Séta <i />{dragLook ? "Kattintás és húzás – Kamera" : "Egér – Kamera forgatása"}<i /><kbd>Esc</kbd> Szünet</div>}
       {!mobile && <div className="daytime-label"><SunIcon /><span>{interior ? "Belső séta" : "Nappali séta"}</span></div>}
-      <div className="crosshair" aria-hidden="true" />
     </div>
   );
 }

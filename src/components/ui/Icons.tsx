@@ -13,5 +13,6 @@ export function WalkIcon(props: Props) { return <svg viewBox="0 0 24 24" {...bas
 export function SettingsIcon(props: Props) { return <svg viewBox="0 0 24 24" {...base} {...props}><path d="M4 7h16M4 17h16" /><circle cx="9" cy="7" r="2.5" fill="currentColor" stroke="none" /><circle cx="15" cy="17" r="2.5" fill="currentColor" stroke="none" /></svg>; }
 export function CloseIcon(props: Props) { return <svg viewBox="0 0 24 24" {...base} {...props}><path d="m6 6 12 12M6 18 18 6" /></svg>; }
 export function DoorIcon(props: Props) { return <svg viewBox="0 0 24 24" {...base} {...props}><path d="M5 21V3h13v18M3 21h18M9 21V7l9-4M14 13h.01" /></svg>; }
+export function SpeechIcon(props: Props) { return <svg viewBox="0 0 24 24" {...base} {...props}><path d="M20 11a8 8 0 0 1-8 8H5l-3 3v-8a8 8 0 1 1 18-3Z" /><path d="M7 10h9M7 14h6" /></svg>; }
 export function CompassIcon(props: Props) { return <svg viewBox="0 0 40 40" {...base} {...props}><circle cx="20" cy="20" r="16" opacity=".5" /><path d="m20 7 5 13-5-2-5 2 5-13Z" fill="currentColor" /><path d="m20 33-5-13 5 2 5-2-5 13Z" opacity=".4" /></svg>; }
 export function SunIcon(props: Props) { return <svg viewBox="0 0 24 24" {...base} {...props}><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5" /></svg>; }

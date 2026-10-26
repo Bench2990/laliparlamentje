@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import type {} from "../../src/components/experience/SceneTestBridge";
+import { CAMEO } from "../../src/lib/cameo";
 
 test("desktop: real WebGL, keyboard walking, collision, connected rooms and return", async ({ page }) => {
   const errors: string[] = [];
@@ -15,19 +16,29 @@ test("desktop: real WebGL, keyboard walking, collision, connected rooms and retu
   await expect(page.getByRole("heading", { name: "Az Országház", exact: true })).not.toBeVisible();
   await page.waitForTimeout(500);
   const start = await page.evaluate(() => window.__parliamentTest!.snapshot());
+  expect(start.avatar.visible).toBe(true);
+  expect(start.camera.distance).toBeGreaterThan(4);
+  expect(start.camera.clear).toBe(true);
   await page.mouse.down();
   await page.mouse.move(265, 690, { steps: 8 });
   await page.mouse.up();
   await expect.poll(async () => Math.abs((await page.evaluate(() => window.__parliamentTest!.snapshot())).yaw - start.yaw)).toBeGreaterThan(0.02);
   await page.keyboard.down("w");
   await expect.poll(async () => start.x - (await page.evaluate(() => window.__parliamentTest!.snapshot())).x, { timeout: 15000 }).toBeGreaterThan(1.2);
+  await expect.poll(async () => Math.abs((await page.evaluate(() => window.__parliamentTest!.snapshot())).avatar.leftLeg)).toBeGreaterThan(0.04);
   await page.keyboard.up("w");
   const moved = await page.evaluate(() => window.__parliamentTest!.snapshot());
   expect(start.x - moved.x).toBeGreaterThan(1);
-  expect(Math.abs(moved.y - 1.7)).toBeLessThan(0.05);
+  expect(Math.abs(moved.y)).toBeLessThan(0.05);
+  expect(moved.camera.clear).toBe(true);
   await page.keyboard.press("e");
   await expect(page.locator('[data-scene="exterior"]')).toBeVisible();
 
+  await page.evaluate(() => window.__parliamentTest!.place(59, 0, Math.PI / 2, -0.4));
+  const sign = (await page.evaluate(() => window.__parliamentTest!.snapshot())).sign;
+  expect(sign?.text).toBe("Lali parlamentje");
+  expect(sign?.inView).toBe(true);
+  await page.screenshot({ path: "artifacts/entrance-sign.png" });
   await page.evaluate(() => window.__parliamentTest!.place(44.5, 0, Math.PI / 2));
   await expect(page.getByRole("button", { name: "E Belépés az Országházba" })).toBeVisible();
   await page.keyboard.down("w");
@@ -44,6 +55,11 @@ test("desktop: real WebGL, keyboard walking, collision, connected rooms and retu
   await expect(page.locator(".scene-transition")).toHaveCSS("opacity", "0");
   await expect(page.getByText("Díszlépcsőház", { exact: true })).toBeVisible();
   await page.screenshot({ path: "artifacts/interior-entrance.png" });
+  await page.evaluate(() => window.__parliamentTest!.place(13, 0, Math.PI / 2));
+  const closeCamera = await page.evaluate(() => window.__parliamentTest!.snapshot());
+  expect(closeCamera.avatar.visible).toBe(true);
+  expect(closeCamera.camera.clear).toBe(true);
+  expect(closeCamera.camera.y).toBeGreaterThan(3.5);
 
   await page.evaluate(() => window.__parliamentTest!.place(0, -22));
   await expect(page.getByText("Aranyfolyosó", { exact: true })).toBeVisible();
@@ -54,6 +70,17 @@ test("desktop: real WebGL, keyboard walking, collision, connected rooms and retu
   await page.keyboard.up("w");
   await expect(page.getByText("Díszterem", { exact: true })).toBeVisible();
   await page.screenshot({ path: "artifacts/interior-chamber.png" });
+  const npc = (await page.evaluate(() => window.__parliamentTest!.snapshot())).cameo!;
+  await expect.poll(async () => { const p = (await page.evaluate(() => window.__parliamentTest!.snapshot())).cameo!; return Math.hypot(p.x - npc.x, p.z - npc.z); }).toBeGreaterThan(0.1);
+  await page.evaluate(() => { const n = window.__parliamentTest!.snapshot().cameo!; return window.__parliamentTest!.place(n.x, n.z + 2.1); });
+  await expect(page.getByRole("button", { name: /megszólításhoz/ })).toBeVisible();
+  await page.keyboard.press("e");
+  await expect(page.getByTestId("cameo-speech")).toContainText(CAMEO.line);
+  await expect.poll(async () => (await page.evaluate(() => window.__parliamentTest!.snapshot())).cameo!.wave).toBeGreaterThan(1.2);
+  await expect.poll(async () => (await page.evaluate(() => window.__parliamentTest!.snapshot())).cameo!.walking).toBe(false);
+  await page.keyboard.press("e");
+  await expect(page.locator('[data-scene="interior"]')).toBeVisible();
+  await page.screenshot({ path: "artifacts/cameo-conversation.png" });
 
   await page.evaluate(() => window.__parliamentTest!.place(0, 8.6, Math.PI));
   await expect(page.getByRole("button", { name: "E Kilépés az Országházból" })).toBeVisible();
@@ -63,7 +90,10 @@ test("desktop: real WebGL, keyboard walking, collision, connected rooms and retu
   await expect(page.locator(".scene-transition")).toHaveCSS("opacity", "0");
   const outside = await page.evaluate(() => window.__parliamentTest!.snapshot());
   expect(Math.abs(outside.x - 44.5)).toBeLessThan(0.1);
-  expect(Math.abs(outside.y - 3.14)).toBeLessThan(0.1);
+  expect(Math.abs(outside.y - 1.44)).toBeLessThan(0.1);
+  expect(outside.avatar.visible).toBe(true);
+  expect(outside.camera.clear).toBe(true);
+  await expect(page.getByTestId("cameo-speech")).not.toBeVisible();
 
   await page.evaluate(() => window.__parliamentTest!.place(-53, 25, Math.PI / 2, 0.03));
   await expect(page.getByText("Duna-part", { exact: true })).toBeVisible();

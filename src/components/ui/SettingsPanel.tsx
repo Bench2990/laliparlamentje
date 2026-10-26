@@ -26,7 +26,7 @@ export default function SettingsPanel({ quality, onQuality, onClose, mobile }: {
         <option value="low">Kímélő — gördülékenyebb mozgás</option>
       </select>
       <p className="settings-note">A kímélő mód csökkenti a felbontást és az árnyékok részletességét. Az építészeti elemek megmaradnak.</p>
-      <div className="settings-controls"><h3>Így barangolhatsz</h3>{mobile ? <p>Bal oldali joystick – Mozgás<br />Jobb oldal húzása – Körbenézés<br />A bejáratnál megjelenő gomb – Belépés vagy kilépés</p> : <p>W A S D vagy nyílbillentyűk – Mozgás<br />Egér – Körbenézés<br />E – Belépés vagy kilépés a bejáratnál<br />Esc – A séta szüneteltetése</p>}</div>
+      <div className="settings-controls"><h3>Karakterkövető séta</h3>{mobile ? <p>Bal oldali joystick – Séta a kamera irányához képest<br />Jobb oldal húzása – Kamera forgatása a karakter körül<br />Megjelenő gomb – Belépés, kilépés vagy megszólítás</p> : <p>W A S D vagy nyílbillentyűk – Séta a kamera irányához képest<br />Egér, vagy kattintás és húzás – Kamera forgatása<br />E – Belépés, kilépés vagy megszólítás a közelben<br />Esc – A séta szüneteltetése</p>}</div>
       <p className="about-note">Az Országház és környékének stilizált, szabadon bejárható építészeti értelmezése. Nem pontos műemléki felmérés; a belső terek a valódi épület hangulatát idézik.</p>
       <button className="start-button" onClick={onClose}><span>Vissza a sétához</span><ArrowIcon /></button>
     </dialog>

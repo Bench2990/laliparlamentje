@@ -1,6 +1,6 @@
 # Az Országház
 
-A browser-based, first-person architectural walk around a stylized Hungarian Parliament, Kossuth Lajos Square, and the Danube embankment. Includes a connected, walkable interpretation of the Parliament interior. All visitor-facing text is Hungarian.
+A browser-based, third-person architectural walk around a stylized Hungarian Parliament, Kossuth Lajos Square, and the Danube embankment. Includes a connected, walkable interpretation of the Parliament interior, a personalized entrance plaque, and a harmless fictional political-figure cameo. All visitor-facing text is Hungarian.
 
 ## Run locally
 
@@ -30,11 +30,19 @@ Deploy the repository to **Vercel**, select its Next.js preset, and use the defa
 
 ## Explore
 
-- **Desktop:** WASD or arrow keys to walk; mouse to look; **E** at the main east entrance to enter, and at the interior entrance door to exit. **Esc** releases the mouse. If pointer lock is unavailable, click and drag to look.
-- **Mobile:** left analog joystick to walk, right-hand area to look. Independent captured pointer IDs support simultaneous gestures. Use **Belépés** / **Kilépés** at the door. Portrait, landscape, and safe-area insets are supported.
+- **Desktop:** WASD or arrow keys to move relative to the camera; mouse to orbit the follow camera. **E** enters/exits at the main door or greets the nearby chamber cameo. **Esc** releases the mouse. If pointer lock is unavailable, click and drag to orbit.
+- **Mobile:** left analog joystick to walk, right-hand area to orbit. Independent captured pointer IDs support simultaneous gestures. Use **Belépés** / **Kilépés** at the door and **Megszólítás** near the cameo. Portrait, landscape, and safe-area insets are supported.
+- A short-brown-haired, light-skinned male avatar in a black long-sleeve top and black trousers is visible outdoors and indoors. Procedural limb motion and smooth turning provide a lightweight walk/idle animation.
+- The follow camera retracts before walls, columns, room corners, and the river boundary. In very tight spaces it uses a short elevated view instead of going inside the avatar. Drag vertically to inspect the upper facade or ceilings.
 - The settings button changes rendering quality without restarting the walk.
 - Follow the paths around either end of the Parliament to reach the riverfront. Water and major buildings are impassable.
 - Desktop and mobile share the **9.2 m/s** maximum movement speed in `src/lib/world.ts`; the joystick retains proportional analog speed and collision substeps remain enabled.
+
+## Personalized additions
+
+- **“Lali parlamentje”** is a gold-trimmed green architectural nameplate above the east entrance. Its high-resolution lettering uses the locally bundled Cormorant Garamond font on a real 3D plaque; it is not a screen overlay or remote text asset.
+- The chamber's **Viktor-inspired caricature** slowly walks a furniture-free loop. Nearby, **E / Megszólítás** prompts a brief wave and the invented line: “Napirend előtt: egy kis séta is belefér!” The label explicitly identifies the figure as a fictional caricature, not an authentic portrayal or quote. There is no combat, harm, collapse, or political persuasion.
+- The NPC pauses rather than walking into the visitor. Greeting is proximity-guarded, cannot repeatedly trigger while active, and resets on scene changes. Door interactions remain separate and use the character's position, not the follow camera's position.
 
 ## Architecture and assets
 
@@ -58,11 +66,15 @@ src/components/experience/   Client-only canvas, movement, scene transitions
 src/components/controls/     Captured-pointer joystick, touch look, door button
 src/components/world/        Instanced Parliament, square, city, water, lighting
 src/components/interior/     Entrance hall, corridor, ceremonial chamber
+src/components/characters/   Shared instanced humanoids and procedural limb animation
 src/components/ui/           Welcome, HUD, settings, loading and WebGL fallback
 src/lib/world.ts             Metre-based world, spawns, doors, movement settings
 src/lib/collisions.ts        Swept/substepped 2D collision and room-union boundaries
 src/lib/model.ts             Reusable procedural model builder and palette
 src/lib/interior-details.ts  Columns, arches, chandeliers, patterned floors
+src/lib/follow-camera.ts     Follow-camera composition and collision-safe camera boom
+src/lib/characters.ts        Character motion data and shortest-angle turning
+src/lib/cameo.ts             Safe NPC path, fictional dialogue, interaction guards
 tests/                       Unit and real-browser WebGL tests
 ```
 
@@ -75,6 +87,7 @@ World coordinates use **+X east, +Z south, +Y up**. The Parliament's long axis i
 - Capped device pixel ratio, automatic reduction under sustained low frame rate, and a manual low-detail setting. Mobile defaults to a 1024 px shadow map and reduced resolution.
 - Lightweight water shader; no postprocessing, physics engine, network textures, or per-frame React state for the player.
 - Scene changes free the old geometry/materials. Input is cleared on blur, visibility changes, gesture cancellation, and transitions.
+- Characters reuse instanced primitive geometry and small local contact-shadow textures. They do not add shadow-casting lights or require skeletal models, downloads, or shadow-map rebaking each frame.
 
 ## Checks
 
@@ -87,7 +100,7 @@ npm run build
 npm run test:production
 ```
 
-Browser tests start an isolated dev server on port **3100**, exercise actual WebGL rendering, desktop movement/collisions, Chromium mobile multitouch, touch cancellation, both door transitions, and landscape/settings. A WebKit test also checks rendering and the mobile flow in an iPhone viewport. These are engine/emulation checks, not certification on physical phones. Screenshots are written to the ignored `artifacts/` directory. Browser diagnostics and traces on failure are stored in `test-results/`.
+Browser tests start an isolated dev server on port **3100**, exercise actual WebGL rendering, third-person movement/animation, camera obstruction, entrance-sign visibility, cameo walking/dialogue, Chromium mobile multitouch, touch cancellation, both door transitions, and portrait/landscape/settings. A WebKit test also checks rendering and the mobile interaction flow in an iPhone viewport. These are engine/emulation checks, not certification on physical phones. Screenshots are written to the ignored `artifacts/` directory. Browser diagnostics and traces on failure are stored in `test-results/`.
 
 Playwright alone enables `NEXT_PUBLIC_E2E=1`, which mounts a test-only camera inspection/placement bridge and uses `.next-e2e` so it does not interfere with production output. **Do not set this variable for deployment.** The bridge is eliminated from normal production builds.
 
@@ -97,5 +110,6 @@ The production smoke test starts the optimized build on port **3200** and verifi
 
 - This is an artistic architectural interpretation, not a survey-grade digital twin. Courtyards and the complete 691-room floor plan are not reproduced. The interior has three polished spaces rather than the official visitor route.
 - The Buda skyline and bridge are distant scenery, not accessible areas. The riverfront stays on the safe upper embankment; there is no swimming or bridge crossing.
-- No spatial audio, NPCs, weather simulation, photoreal reflections, or gameplay systems. The focus is architecture and quiet exploration.
+- No spatial audio, crowds, weather simulation, photoreal reflections, or gameplay systems. The single NPC interaction is a harmless fictional greeting; the focus remains architecture and quiet exploration.
+- The avatar follows the supplied written appearance description; no reference photo or third-party character model is embedded. Characters are simplified low-poly figures, not photorealistic likenesses.
 - WebGL 2 and hardware acceleration are required. Real phone frame rate depends on device/GPU; low-detail mode preserves architecture while reducing rendering resolution.

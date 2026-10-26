@@ -15,6 +15,8 @@ test("production build renders self-contained local assets without the test navi
   expect(await page.evaluate(() => window.__parliamentTest === undefined)).toBe(true);
   await page.getByRole("button", { name: "Séta indítása" }).click();
   await expect(page.getByText("Kossuth Lajos tér", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-perspective="third-person"]')).toBeVisible();
+  await expect(page.getByTestId("entrance-sign-label")).toHaveText("Bejárati felirat: Lali parlamentje");
   await page.keyboard.press("e");
   await expect(page.locator('[data-scene="exterior"]')).toBeVisible();
   await page.keyboard.press("Escape");

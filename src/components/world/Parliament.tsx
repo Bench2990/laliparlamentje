@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Model, PALETTE as P } from "@/lib/model";
 import StaticModel from "./StaticModel";
+import EntranceSign from "./EntranceSign";
 
 function pinnacle(m: Model, x: number, z: number, base: number, size = 1) {
   m.box([x, base + 0.4 * size, z], [1.4 * size, 0.8 * size, 1.4 * size], P.light);
@@ -229,5 +230,5 @@ function buildParliament() {
 
 export default function Parliament() {
   const parts = useMemo(buildParliament, []);
-  return <group rotation={[0, Math.PI / 2, 0]}><StaticModel parts={parts} /></group>;
+  return <group rotation={[0, Math.PI / 2, 0]}><StaticModel parts={parts} /><EntranceSign /></group>;
 }

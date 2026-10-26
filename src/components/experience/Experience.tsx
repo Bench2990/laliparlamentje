@@ -5,9 +5,11 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useDevice } from "@/hooks/useDevice";
 import { clearInput, createInput } from "@/lib/input";
-import { INITIAL_SPAWN, SPAWNS, isNearDoor, type SceneId, type Spawn } from "@/lib/world";
+import { INITIAL_SPAWN, SPAWNS, type SceneId, type Spawn } from "@/lib/world";
+import { CAMEO, createCameo, interactionTarget, resetCameo, type InteractionTarget } from "@/lib/cameo";
 import ExteriorScene from "@/components/world/ExteriorScene";
 import InteriorScene from "@/components/interior/InteriorScene";
+import ParliamentCameo from "@/components/interior/ParliamentCameo";
 import MobileJoystick from "@/components/controls/MobileJoystick";
 import MobileLookControls from "@/components/controls/MobileLookControls";
 import InteractionButton from "@/components/controls/InteractionButton";
@@ -66,7 +68,8 @@ export default function Experience() {
   const [dragLook, setDragLook] = useState(false);
   const [scene, setScene] = useState<SceneId>("exterior");
   const [spawn, setSpawn] = useState<Spawn>(INITIAL_SPAWN);
-  const [nearDoor, setNearDoor] = useState(false);
+  const [target, setTarget] = useState<InteractionTarget>(null);
+  const [speaking, setSpeaking] = useState(false);
   const [location, setLocation] = useState("Kossuth Lajos tér");
   const [phase, setPhase] = useState<TransitionPhase>(null);
   const [settings, setSettings] = useState(false);
@@ -76,6 +79,8 @@ export default function Experience() {
   const [renderDpr, setRenderDpr] = useState(1);
   const [contextLost, setContextLost] = useState(false);
   const input = useMemo(createInput, []);
+  const cameo = useMemo(createCameo, []);
+  const onSpeechEnd = useCallback(() => setSpeaking(false), []);
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const transitioning = useRef(false);
   const awaitingArrival = useRef(false);
@@ -122,20 +127,30 @@ export default function Experience() {
   }, [mobile]);
 
   const interact = useCallback(() => {
-    // Check the current controller position, not just a potentially stale UI prompt.
-    if (!playing || transitioning.current || !isNearDoor(scene, input.x, input.z)) return;
+    // Recheck the character position, never the following camera or a stale prompt.
+    if (!playing || transitioning.current) return;
+    const selected = interactionTarget(scene, input.x, input.z, cameo);
+    if (selected === "cameo") {
+      cameo.greetingRemaining = CAMEO.greetingDuration;
+      setSpeaking(true);
+      setTarget(null);
+      return;
+    }
+    if (selected !== "door") return;
     transitioning.current = true;
     clearInput(input);
-    setNearDoor(false);
+    setTarget(null);
+    setSpeaking(false);
     setPhase("out");
     const destination: SceneId = scene === "exterior" ? "interior" : "exterior";
     timers.current.push(setTimeout(() => {
       awaitingArrival.current = true;
+      resetCameo(cameo);
       setScene(destination);
       setSpawn(SPAWNS[destination]);
       setLocation(destination === "interior" ? "Díszlépcsőház" : "Az Országház főbejárata");
     }, 430));
-  }, [input, playing, scene]);
+  }, [input, cameo, playing, scene]);
 
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
@@ -149,7 +164,7 @@ export default function Experience() {
     return () => document.removeEventListener("keydown", key);
   }, [interact, dragLook, started, settings]);
 
-  const onStatus = useCallback((near: boolean, name: string) => { setNearDoor(near); setLocation(name); }, []);
+  const onStatus = useCallback((next: InteractionTarget, name: string) => { setTarget(next); setLocation(name); }, []);
   const openSettings = () => {
     if (phase) return;
     clearInput(input);
@@ -159,7 +174,7 @@ export default function Experience() {
   const closeSettings = () => { setSettings(false); if (started) requestLook(); };
 
   return (
-    <div className={`experience ${scene === "interior" ? "is-interior" : ""}`} data-scene={scene} data-ready={ready} data-transition={phase ?? "idle"}>
+    <div className={`experience ${scene === "interior" ? "is-interior" : ""}`} data-scene={scene} data-ready={ready} data-transition={phase ?? "idle"} data-perspective="third-person">
       <Canvas
         shadows="soft"
         dpr={renderDpr}
@@ -176,17 +191,19 @@ export default function Experience() {
         }}
       >
         {scene === "exterior" ? <ExteriorScene lowQuality={lowQuality} /> : <InteriorScene lowQuality={lowQuality} />}
-        <PlayerController scene={scene} spawn={spawn} input={input} active={playing} dragLook={dragLook} onStatus={onStatus} />
+        {scene === "interior" && <ParliamentCameo cameo={cameo} input={input} active={playing} speaking={speaking} onSpeechEnd={onSpeechEnd} />}
+        <PlayerController scene={scene} spawn={spawn} input={input} cameo={cameo} started={started} active={playing} dragLook={dragLook} onStatus={onStatus} />
         <RenderTuning scene={scene} mobile={mobile} lowQuality={lowQuality} onReady={onReady} onDprChange={setRenderDpr} />
-        {process.env.NEXT_PUBLIC_E2E === "1" && <SceneTestBridge scene={scene} input={input} />}
+        {process.env.NEXT_PUBLIC_E2E === "1" && <SceneTestBridge scene={scene} input={input} cameo={cameo} />}
       </Canvas>
+      {scene === "exterior" && <span className="sr-only" data-testid="entrance-sign-label">Bejárati felirat: Lali parlamentje</span>}
       <div className="top-scrim" />
       <ExperienceHeader started={started} onSettings={openSettings} />
       {!started && <WelcomeScreen mobile={mobile} ready={ready} onStart={() => { setStarted(true); requestLook(); }} />}
       {started && <>
         <GameHUD location={location} mobile={mobile} interior={scene === "interior"} dragLook={dragLook} />
         {mobile && <><MobileLookControls input={input} enabled={playing} /><MobileJoystick input={input} enabled={playing} /></>}
-        {nearDoor && playing && <InteractionButton scene={scene} mobile={mobile} onInteract={interact} />}
+        {target && playing && <InteractionButton scene={scene} target={target} mobile={mobile} onInteract={interact} />}
         {!mobile && !locked && !dragLook && !settings && !phase && <div className="pause-overlay"><div className="pause-card"><span className="eyebrow">NINCS MIÉRT SIETNED</span><h2>A tér megvár.</h2><p>Kattints a folytatáshoz. Az Esc billentyűvel<br />bármikor elengedheted az egeret.</p><button className="start-button" onClick={requestLook}><span>Séta folytatása</span><ArrowIcon /></button></div></div>}
       </>}
       {settings && <SettingsPanel quality={quality} onQuality={setQuality} onClose={closeSettings} mobile={mobile} />}

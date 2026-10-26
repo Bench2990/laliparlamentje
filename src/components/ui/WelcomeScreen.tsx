@@ -8,7 +8,7 @@ export default function WelcomeScreen({ mobile, ready, onStart }: { mobile: bool
         <div className="eyebrow"><span />EGY SÉTA BUDAPEST SZÍVÉBEN</div>
         <h1 id="welcome-title" aria-label="Az Országház">Az <span className="title-line"><em>Országház</em><span className="title-period" aria-hidden="true">.</span></span></h1>
         <p className="welcome-subtitle">Fedezd fel a Parlamentet és környékét!</p>
-        <p className="welcome-description">Lassulj le. Nézz körül. Indulj el.<br />A város legszebb részletei csak rád várnak.</p>
+        <p className="welcome-description">Indulj el a saját karaktereddel.<br />Forgasd a kamerát, és fedezd fel a részleteket.</p>
         <button className="start-button" onClick={onStart} disabled={!ready}>
           <span>{ready ? "Séta indítása" : "A tér életre kel…"}</span><ArrowIcon />
         </button>
@@ -19,7 +19,7 @@ export default function WelcomeScreen({ mobile, ready, onStart }: { mobile: bool
         <div><span>PEST, A DUNA PARTJÁN</span><p>Egy egészen új nézőpont.</p></div>
       </div>
       <footer className="welcome-footer">
-        <div className="launch-controls">{mobile ? <><span className="control-dot" />Bal oldali joystick – Mozgás <b>·</b> Jobb oldal – Körbenézés</> : <><span className="key-cluster"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>Mozgás</span><b>·</b><span>Egér – Körbenézés</span><b>·</b><kbd>E</kbd><span>Belépés</span></>}</div>
+        <div className="launch-controls">{mobile ? <><span className="control-dot" />Bal joystick – Séta <b>·</b> Jobb oldal – Kamera forgatása</> : <><span className="key-cluster"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>Séta</span><b>·</b><span>Egér – Kamera forgatása</span><b>·</b><kbd>E</kbd><span>Interakció</span></>}</div>
         <span className="footer-coordinates">47°30′25″ É &nbsp; 19°02′44″ K</span>
       </footer>
     </section>
