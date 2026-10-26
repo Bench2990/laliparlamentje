@@ -1,0 +1,37 @@
+import { test, expect } from "@playwright/test";
+import type {} from "../../src/components/experience/SceneTestBridge";
+
+test("WebKit/iPhone viewport: rendering, captured-pointer controls, enter and exit", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await expect(page.locator('[data-ready="true"]')).toBeVisible({ timeout: 120_000 });
+  await page.getByRole("button", { name: "Séta indítása" }).tap();
+  await expect(page.getByTestId("joystick")).toBeVisible();
+  const box = (await page.getByTestId("joystick").boundingBox())!;
+  const start = await page.evaluate(() => window.__parliamentTest!.snapshot());
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 30, { steps: 4 });
+  await expect.poll(async () => { const p = await page.evaluate(() => window.__parliamentTest!.snapshot()); return Math.hypot(p.x - start.x, p.z - start.z); }, { timeout: 15000 }).toBeGreaterThan(0.6);
+  await page.mouse.up();
+  await expect.poll(async () => (await page.evaluate(() => window.__parliamentTest!.snapshot())).moveY).toBe(0);
+  const look = (await page.getByTestId("touch-look").boundingBox())!;
+  const beforeLook = await page.evaluate(() => window.__parliamentTest!.snapshot());
+  await page.mouse.move(look.x + look.width / 2, look.y + look.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(look.x + look.width / 2 + 32, look.y + look.height / 2 + 12, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(async () => Math.abs((await page.evaluate(() => window.__parliamentTest!.snapshot())).yaw - beforeLook.yaw)).toBeGreaterThan(0.05);
+  await expect.poll(async () => Math.abs((await page.evaluate(() => window.__parliamentTest!.snapshot())).pitch - beforeLook.pitch)).toBeGreaterThan(0.01);
+  await page.evaluate(() => window.__parliamentTest!.place(44.5, 0, Math.PI / 2));
+  await page.getByRole("button", { name: "Belépés", exact: true }).tap();
+  await expect(page.locator('[data-scene="interior"][data-transition="idle"]')).toBeVisible();
+  await page.evaluate(() => window.__parliamentTest!.place(0, 8.6, Math.PI));
+  await page.getByRole("button", { name: "Kilépés", exact: true }).tap();
+  await expect(page.locator('[data-scene="exterior"][data-transition="idle"]')).toBeVisible();
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(page.getByTestId("joystick")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)).toBe(true);
+  expect(errors).toEqual([]);
+});
