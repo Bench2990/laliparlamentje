@@ -30,8 +30,8 @@ Deploy the repository to **Vercel**, select its Next.js preset, and use the defa
 
 ## Explore
 
-- **Desktop:** WASD or arrow keys to move relative to the camera; mouse to orbit the follow camera. **E** enters/exits at the main door or greets the nearby chamber cameo. **Esc** releases the mouse. If pointer lock is unavailable, click and drag to orbit.
-- **Mobile:** left analog joystick to walk, right-hand area to orbit. Independent captured pointer IDs support simultaneous gestures. Use **Belépés** / **Kilépés** at the door and **Megszólítás** near the cameo. Portrait, landscape, and safe-area insets are supported.
+- **Desktop:** WASD or arrow keys to move relative to the camera; mouse to orbit the follow camera. **E** enters/exits at the main door. **F** performs a cartoon slap near the chamber cameo. **Esc** releases the mouse. If pointer lock is unavailable, click and drag to orbit.
+- **Mobile:** left analog joystick to walk, right-hand area to orbit. Independent captured pointer IDs support simultaneous gestures. Use **Belépés** / **Kilépés** at the door and **Pofon 👋** near the cameo. Portrait, landscape, and safe-area insets are supported.
 - A short-brown-haired, light-skinned male avatar in a black long-sleeve top and black trousers is visible outdoors and indoors. Procedural limb motion and smooth turning provide a lightweight walk/idle animation.
 - The follow camera retracts before walls, columns, room corners, and the river boundary. In very tight spaces it uses a short elevated view instead of going inside the avatar. Drag vertically to inspect the upper facade or ceilings.
 - The settings button changes rendering quality without restarting the walk.
@@ -41,8 +41,9 @@ Deploy the repository to **Vercel**, select its Next.js preset, and use the defa
 ## Personalized additions
 
 - **“Lali parlamentje”** is a gold-trimmed green architectural nameplate above the east entrance. Its high-resolution lettering uses the locally bundled Cormorant Garamond font on a real 3D plaque; it is not a screen overlay or remote text asset.
-- The chamber's **Viktor-inspired caricature** slowly walks a furniture-free loop. Nearby, **E / Megszólítás** prompts a brief wave and the invented line: “Napirend előtt: egy kis séta is belefér!” The label explicitly identifies the figure as a fictional caricature, not an authentic portrayal or quote. There is no combat, harm, collapse, or political persuasion.
-- The NPC pauses rather than walking into the visitor. Greeting is proximity-guarded, cannot repeatedly trigger while active, and resets on scene changes. Door interactions remain separate and use the character's position, not the follow camera's position.
+- The chamber's **Orbán-inspired Viktor caricature** slowly walks a furniture-free loop. Within 1.65 m, **F / Pofon 👋** starts an exaggerated, non-graphic cartoon gag: the player swings an open hand for 0.68 seconds; the NPC wobbles, falls backwards, rests on the floor for 1.75 seconds with orbiting stars, then stands and resumes the same route. The full sequence lasts 4.8 seconds. There is no blood, injury, damage, authentic quote, or political persuasion.
+- A locally synthesized comic clap/boing plays once at the arm's impact. Web Audio is unlocked by the activating key/tap, needs no remote files, and degrades silently if unavailable. Device volume/silent mode still applies.
+- The NPC pauses rather than walking into the visitor. The interaction rechecks proximity, rejects repeated activation for the whole reaction, pauses with the game/settings, and resets on scene changes. The player only pauses movement during the short arm swing; camera/mobile controls and separate **E** door interactions are retained. A lightweight collision footprint follows the reclining body.
 
 ## Architecture and assets
 
@@ -74,7 +75,9 @@ src/lib/model.ts             Reusable procedural model builder and palette
 src/lib/interior-details.ts  Columns, arches, chandeliers, patterned floors
 src/lib/follow-camera.ts     Follow-camera composition and collision-safe camera boom
 src/lib/characters.ts        Character motion data and shortest-angle turning
-src/lib/cameo.ts             Safe NPC path, fictional dialogue, interaction guards
+src/lib/cameo.ts             Safe NPC path and proximity/re-entry guards
+src/lib/slap.ts              Shared cartoon timeline and procedural animation poses
+src/lib/slap-audio.ts        User-gesture-unlocked, synthesized clap/boing
 tests/                       Unit and real-browser WebGL tests
 ```
 
@@ -100,7 +103,9 @@ npm run build
 npm run test:production
 ```
 
-Browser tests start an isolated dev server on port **3100**, exercise actual WebGL rendering, third-person movement/animation, camera obstruction, entrance-sign visibility, cameo walking/dialogue, Chromium mobile multitouch, touch cancellation, both door transitions, and portrait/landscape/settings. A WebKit test also checks rendering and the mobile interaction flow in an iPhone viewport. These are engine/emulation checks, not certification on physical phones. Screenshots are written to the ignored `artifacts/` directory. Browser diagnostics and traces on failure are stored in `test-results/`.
+Browser tests start an isolated dev server on port **3100**, exercise actual WebGL rendering, third-person movement/animation, camera obstruction, entrance-sign visibility, the complete slap/fall/recovery cycle, single Web Audio playback, repeated-input rejection, Chromium mobile multitouch, touch cancellation, both door transitions, and portrait/landscape/settings. A WebKit test also checks rendering and the full slap interaction in an iPhone viewport. These are engine/emulation checks, not certification on physical phones. Screenshots are written to the ignored `artifacts/` directory. Browser diagnostics and traces on failure are stored in `test-results/`.
+
+The Windows Playwright WebKit build does not expose `AudioContext`; that engine checks the silent fallback, while desktop/Android-emulated Chromium checks actual audio playback. Verify sound on a physical iPhone with silent mode off before relying on iOS audio certification.
 
 Playwright alone enables `NEXT_PUBLIC_E2E=1`, which mounts a test-only camera inspection/placement bridge and uses `.next-e2e` so it does not interfere with production output. **Do not set this variable for deployment.** The bridge is eliminated from normal production builds.
 
@@ -110,6 +115,6 @@ The production smoke test starts the optimized build on port **3200** and verifi
 
 - This is an artistic architectural interpretation, not a survey-grade digital twin. Courtyards and the complete 691-room floor plan are not reproduced. The interior has three polished spaces rather than the official visitor route.
 - The Buda skyline and bridge are distant scenery, not accessible areas. The riverfront stays on the safe upper embankment; there is no swimming or bridge crossing.
-- No spatial audio, crowds, weather simulation, photoreal reflections, or gameplay systems. The single NPC interaction is a harmless fictional greeting; the focus remains architecture and quiet exploration.
+- No spatial audio, crowds, weather simulation, photoreal reflections, health/damage systems, or combat mechanics. The single NPC interaction is a non-graphic fictional cartoon gag; the focus remains architecture and exploration.
 - The avatar follows the supplied written appearance description; no reference photo or third-party character model is embedded. Characters are simplified low-poly figures, not photorealistic likenesses.
 - WebGL 2 and hardware acceleration are required. Real phone frame rate depends on device/GPU; low-detail mode preserves architecture while reducing rendering resolution.

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import type {} from "../../src/components/experience/SceneTestBridge";
-import { CAMEO } from "../../src/lib/cameo";
+import { checkCartoonSlap, installSlapAudioProbe } from "./slap-check";
 
 async function checkMobileLayout(page: Page) {
   const viewport = page.viewportSize()!;
@@ -25,6 +25,7 @@ for (const orientation of ["portrait", "landscape"] as const) {
   test(`mobile (${orientation}): multitouch, higher-speed collision, touch transitions and rotation`, async ({ page, context }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    await installSlapAudioProbe(page);
     await page.setViewportSize(orientation === "portrait" ? { width: 393, height: 851 } : { width: 851, height: 393 });
     await page.goto("/");
     await expect(page.locator('[data-ready="true"]')).toBeVisible({ timeout: 120_000 });
@@ -40,6 +41,9 @@ for (const orientation of ["portrait", "landscape"] as const) {
     const lx = look.x + look.width / 2;
     const ly = look.y + look.height / 2;
     const cdp = await context.newCDPSession(page);
+    // React can show the controls before the first started gameplay frame has
+    // positioned the follow camera, especially with a warm landscape page.
+    await expect.poll(async () => (await page.evaluate(() => window.__parliamentTest!.snapshot())).camera.distance).toBeGreaterThan(3);
     const start = await page.evaluate(() => window.__parliamentTest!.snapshot());
     expect(start.avatar.visible).toBe(true);
     expect(start.camera.distance).toBeGreaterThan(3);
@@ -88,11 +92,7 @@ for (const orientation of ["portrait", "landscape"] as const) {
     await expect(page.locator(".scene-transition")).toHaveCSS("opacity", "0");
     await page.screenshot({ path: `artifacts/mobile-${orientation}-interior.png` });
     expect((await page.evaluate(() => window.__parliamentTest!.snapshot())).avatar.visible).toBe(true);
-    await page.evaluate(() => { const n = window.__parliamentTest!.snapshot().cameo!; return window.__parliamentTest!.place(n.x, n.z + 2.1); });
-    await page.getByRole("button", { name: "Megszólítás", exact: true }).tap();
-    await expect(page.getByTestId("cameo-speech")).toContainText(CAMEO.line);
-    await expect.poll(async () => (await page.evaluate(() => window.__parliamentTest!.snapshot())).cameo!.wave).toBeGreaterThan(1.2);
-    await page.screenshot({ path: `artifacts/mobile-${orientation}-cameo.png` });
+    await checkCartoonSlap(page, true, `artifacts/mobile-${orientation}-cartoon-slap.png`);
     await page.evaluate(() => window.__parliamentTest!.place(0, 8.6, Math.PI));
     await page.getByRole("button", { name: "Kilépés", exact: true }).tap();
     await expect(page.locator('[data-scene="exterior"][data-transition="idle"]')).toBeVisible();

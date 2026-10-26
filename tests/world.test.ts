@@ -4,8 +4,10 @@ import { canOccupy, moveWithCollisions } from "../src/lib/collisions";
 import { DOORS, INITIAL_SPAWN, SPAWNS, WALK, floorHeight, isNearDoor, locationName, type SceneId } from "../src/lib/world";
 import { clearInput, createInput } from "../src/lib/input";
 import { FOLLOW_CAMERA, cameraPointIsClear, clipCameraBoom, followCameraPose } from "../src/lib/follow-camera";
-import { CAMEO, cameoRoute, createCameo, interactionTarget, resetCameo } from "../src/lib/cameo";
+import { CAMEO, beginSlap, cameoRoute, createCameo, interactionTarget, resetCameo } from "../src/lib/cameo";
 import { turnTowards } from "../src/lib/characters";
+import { SLAP, advanceSlap, cameoSlapPose, playerSlapPose, slapPhase } from "../src/lib/slap";
+import { createSlapAudio } from "../src/lib/slap-audio";
 
 describe("safe spawns and door interaction", () => {
   it("starts in the square, with a clear view and no collision", () => {
@@ -196,27 +198,117 @@ describe("harmless Parliament cameo", () => {
     }
     assert.ok(Math.hypot(cameoRoute(0).x - cameoRoute(5).x, cameoRoute(0).z - cameoRoute(5).z) > 1);
   });
-  it("uses proximity-guarded, mutually exclusive door and speech interactions", () => {
+  it("uses proximity-guarded, mutually exclusive door and slap interactions", () => {
     const cameo = createCameo();
     assert.equal(interactionTarget("exterior", 44.5, 0, cameo), "door");
     assert.equal(interactionTarget("interior", 0, 8.5, cameo), "door");
-    assert.equal(interactionTarget("interior", cameo.x, cameo.z + 2.1, cameo), "cameo");
+    assert.equal(interactionTarget("interior", cameo.x, cameo.z + 1.25, cameo), "cameo");
+    assert.equal(interactionTarget("interior", cameo.x, cameo.z + CAMEO.interactionDistance + 0.01, cameo), null);
     assert.equal(interactionTarget("interior", 0, 6.5, cameo), null);
     assert.equal(interactionTarget("exterior", cameo.x, cameo.z, cameo), null);
-    cameo.greetingRemaining = CAMEO.greetingDuration;
-    assert.equal(interactionTarget("interior", cameo.x, cameo.z + 2.1, cameo), null);
+    cameo.slapTime = 0;
+    assert.equal(interactionTarget("interior", cameo.x, cameo.z + 1.25, cameo), null);
+    assert.equal(interactionTarget("interior", 0, 8.5, cameo), "door");
   });
   it("prevents the player passing through the NPC at the current walking speed", () => {
     const cameo = createCameo();
     const next = moveWithCollisions("interior", cameo.x, cameo.z + 3, 0, -WALK.speed, [{ kind: "circle", x: cameo.x, z: cameo.z, radius: CAMEO.radius }]);
     assert.ok(next.z >= cameo.z + WALK.radius + CAMEO.radius - 0.001);
   });
-  it("resets dialogue and walking state cleanly on scene changes", () => {
+  it("resets the whole reaction and walking state cleanly on scene changes", () => {
     const cameo = createCameo();
-    cameo.greetingRemaining = 3;
+    cameo.slapTime = 3;
     cameo.pathTime = 5;
-    cameo.wave = 1;
+    cameo.walkBlend = 0.65;
     resetCameo(cameo);
     assert.deepEqual(cameo, createCameo());
+  });
+});
+
+describe("non-graphic cartoon slap timeline", () => {
+  it("faces both actors towards each other and rejects distant or repeated starts", () => {
+    const cameo = createCameo();
+    const player = createInput();
+    assert.equal(beginSlap("interior", player, cameo), false);
+    Object.assign(player, { x: cameo.x, z: cameo.z + 1.25 });
+    assert.equal(beginSlap("exterior", player, cameo), false);
+    assert.equal(beginSlap("interior", player, cameo), true);
+    assert.equal(cameo.slapTime, 0);
+    assert.equal(player.facing, Math.PI);
+    assert.equal(cameo.facing, 0);
+    advanceSlap(cameo, 0.1);
+    assert.equal(beginSlap("interior", player, cameo), false);
+    assert.equal(cameo.slapTime, 0.1);
+  });
+
+  it("swings, wobbles, falls, rests on the floor and stands up at every frame rate", () => {
+    for (const fps of [10, 30, 60, 120]) {
+      const cameo = createCameo();
+      const player = Object.assign(createInput(), { x: cameo.x, z: cameo.z + 1.25 });
+      assert.equal(beginSlap("interior", player, cameo), true);
+      const phases = new Set([slapPhase(cameo.slapTime)]);
+      let impacts = 0, completions = 0;
+      for (let frame = 0; frame < Math.ceil((SLAP.duration + 0.2) * fps); frame++) {
+        const event = advanceSlap(cameo, 1 / fps);
+        impacts += Number(event.impact);
+        completions += Number(event.finished);
+        phases.add(slapPhase(cameo.slapTime));
+        if (cameo.slapTime !== null) assert.equal(beginSlap("interior", player, cameo), false);
+      }
+      assert.deepEqual([...phases], ["swing", "wobble", "falling", "floor", "recovering", "idle"]);
+      assert.equal(impacts, 1);
+      assert.equal(completions, 1);
+      assert.equal(cameo.slapTime, null);
+      assert.equal(cameo.pathTime, 0);
+      assert.equal(beginSlap("interior", player, cameo), true);
+    }
+  });
+
+  it("holds a horizontal pose above the floor for a visible rest, without residual tilt", () => {
+    assert.ok(SLAP.floorEnd - SLAP.fallEnd >= 1.5);
+    for (let time = SLAP.fallEnd; time < SLAP.floorEnd; time += 0.05) {
+      const pose = cameoSlapPose(time);
+      assert.equal(pose.fall, 1);
+      assert.equal(pose.tilt, -Math.PI / 2);
+      assert.ok(pose.height >= 0.33);
+    }
+    assert.ok(Math.abs(cameoSlapPose(0.52).wobble) > 0.1);
+    assert.deepEqual(cameoSlapPose(null), { fall: 0, tilt: 0, wobble: 0, height: 0, side: 0, back: 0 });
+    assert.deepEqual(cameoSlapPose(SLAP.duration), cameoSlapPose(null));
+  });
+
+  it("keeps the whole reclining footprint clear of scenery from any approach direction", () => {
+    const pose = cameoSlapPose(SLAP.fallEnd);
+    for (let time = 0; time < 46; time += 0.5) {
+      const npc = cameoRoute(time);
+      for (let facing = 0; facing < Math.PI * 2; facing += 0.25) {
+        for (const distance of [0, 0.7, 1.4]) {
+          const x = npc.x + Math.cos(facing) * pose.side + Math.sin(facing) * (pose.back - distance);
+          const z = npc.z - Math.sin(facing) * pose.side + Math.cos(facing) * (pose.back - distance);
+          assert.ok(canOccupy("interior", x, z, CAMEO.radius), `pratfall intersects scenery at ${time}, ${facing}`);
+        }
+      }
+    }
+  });
+
+  it("uses a short open-hand swing and returns the arm completely to normal", () => {
+    assert.ok(playerSlapPose(SLAP.impact).x < -1.5);
+    assert.ok(Math.abs(playerSlapPose(0.16).elbow) > 0.5);
+    assert.ok(playerSlapPose(SLAP.impact).lean > 0);
+    assert.deepEqual(playerSlapPose(0), playerSlapPose(null));
+    assert.deepEqual(playerSlapPose(SLAP.swingEnd), playerSlapPose(null));
+  });
+
+  it("emits the impact only once even across a skipped frame, and ignores negative deltas", () => {
+    const state = { slapTime: 0 as number | null };
+    assert.deepEqual(advanceSlap(state, -1), { impact: false, finished: false });
+    assert.equal(state.slapTime, 0);
+    assert.deepEqual(advanceSlap(state, 10), { impact: true, finished: true });
+    assert.deepEqual(advanceSlap(state, 10), { impact: false, finished: false });
+  });
+
+  it("degrades silently if Web Audio is unavailable", () => {
+    const audio = createSlapAudio();
+    assert.doesNotThrow(() => { audio.prepare(); audio.play(); audio.dispose(); });
   });
 });

@@ -18,6 +18,7 @@ test("production build renders self-contained local assets without the test navi
   await expect(page.locator('[data-perspective="third-person"]')).toBeVisible();
   await expect(page.getByTestId("entrance-sign-label")).toHaveText("Bejárati felirat: Lali parlamentje");
   await page.keyboard.press("e");
+  await page.keyboard.press("f");
   await expect(page.locator('[data-scene="exterior"]')).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Séta folytatása" })).toBeVisible();

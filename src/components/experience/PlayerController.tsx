@@ -9,6 +9,7 @@ import { WALK, floorHeight, locationName, type SceneId, type Spawn } from "@/lib
 import { CAMEO, interactionTarget, type CameoState, type InteractionTarget } from "@/lib/cameo";
 import { FOLLOW_CAMERA, clipCameraBoom, followCameraPose } from "@/lib/follow-camera";
 import { turnTowards } from "@/lib/characters";
+import { SLAP, cameoSlapPose } from "@/lib/slap";
 import CharacterModel from "@/components/characters/CharacterModel";
 
 type Props = {
@@ -27,7 +28,7 @@ export default function PlayerController({ scene, spawn, input, cameo, started, 
   const velocity = useRef({ x: 0, z: 0 });
   const report = useRef<{ elapsed: number; target: InteractionTarget; location: string }>({ elapsed: 0, target: null, location: "" });
   const cameraDestination = useMemo(() => new THREE.Vector3(), []);
-  const npcCollider = useMemo<CircleCollider[]>(() => [{ kind: "circle", x: cameo.x, z: cameo.z, radius: CAMEO.radius }], [cameo]);
+  const npcCollider = useMemo<CircleCollider[]>(() => [0, 1, 2].map(() => ({ kind: "circle", x: cameo.x, z: cameo.z, radius: CAMEO.radius })), [cameo]);
 
   useLayoutEffect(() => {
     camera.rotation.order = "YXZ";
@@ -97,18 +98,25 @@ export default function PlayerController({ scene, spawn, input, cameo, started, 
       input.yaw -= input.lookX;
       input.pitch = Math.max(FOLLOW_CAMERA.minPitch, Math.min(FOLLOW_CAMERA.maxPitch, input.pitch + input.lookY));
       input.lookX = input.lookY = 0;
+      const swinging = cameo.slapTime !== null && cameo.slapTime < SLAP.swingEnd;
       const keys = input.keys;
       let strafe = input.moveX + (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
       let forward = input.moveY + (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
       const magnitude = Math.hypot(strafe, forward);
       if (magnitude > 1) { strafe /= magnitude; forward /= magnitude; }
-      const targetX = (strafe * Math.cos(input.yaw) - forward * Math.sin(input.yaw)) * WALK.speed;
-      const targetZ = (-strafe * Math.sin(input.yaw) - forward * Math.cos(input.yaw)) * WALK.speed;
+      const targetX = swinging ? 0 : (strafe * Math.cos(input.yaw) - forward * Math.sin(input.yaw)) * WALK.speed;
+      const targetZ = swinging ? 0 : (-strafe * Math.sin(input.yaw) - forward * Math.cos(input.yaw)) * WALK.speed;
       const blend = 1 - Math.exp(-WALK.acceleration * dt);
+      if (swinging) velocity.current = { x: 0, z: 0 };
       velocity.current.x += (targetX - velocity.current.x) * blend;
       velocity.current.z += (targetZ - velocity.current.z) * blend;
-      npcCollider[0].x = cameo.x;
-      npcCollider[0].z = cameo.z;
+      const reaction = cameoSlapPose(cameo.slapTime);
+      // Extend the same lightweight collision along the reclining cartoon body.
+      npcCollider.forEach((collider, index) => {
+        const back = reaction.back - index * 0.7 * reaction.fall;
+        collider.x = cameo.x + Math.cos(cameo.facing) * reaction.side + Math.sin(cameo.facing) * back;
+        collider.z = cameo.z - Math.sin(cameo.facing) * reaction.side + Math.cos(cameo.facing) * back;
+      });
       const next = moveWithCollisions(scene, input.x, input.z, velocity.current.x * dt, velocity.current.z * dt, scene === "interior" ? npcCollider : undefined);
       const dx = next.x - input.x;
       const dz = next.z - input.z;
@@ -145,5 +153,5 @@ export default function PlayerController({ scene, spawn, input, cameo, started, 
       }
     }
   }, -2);
-  return <CharacterModel motion={input} variant="player" name="player-avatar" visible={started} />;
+  return <CharacterModel motion={input} slap={cameo} variant="player" name="player-avatar" visible={started} />;
 }

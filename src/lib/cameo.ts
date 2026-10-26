@@ -1,19 +1,17 @@
 import type { CharacterMotion } from "./characters";
+import type { SlapState } from "./slap";
 import { isNearDoor, type SceneId } from "./world";
 
 export type InteractionTarget = "door" | "cameo" | null;
 
 export const CAMEO = {
   radius: 0.46,
-  interactionDistance: 2.8,
-  greetingDuration: 4.5,
-  line: "Napirend előtt: egy kis séta is belefér!",
+  interactionDistance: 1.65,
   label: "Viktor · fiktív karikatúra",
 } as const;
 
-export type CameoState = CharacterMotion & {
+export type CameoState = CharacterMotion & SlapState & {
   pathTime: number;
-  greetingRemaining: number;
 };
 
 // A slow loop in the open foyer of the chamber, clear of desks and columns.
@@ -27,7 +25,7 @@ export function cameoRoute(time: number) {
 }
 
 export function createCameo(): CameoState {
-  return { ...cameoRoute(0), y: 2.4, pathTime: 0, greetingRemaining: 0, walkPhase: 0, walkBlend: 0, wave: 0 };
+  return { ...cameoRoute(0), y: 2.4, pathTime: 0, slapTime: null, walkPhase: 0, walkBlend: 0 };
 }
 
 export function resetCameo(cameo: CameoState) {
@@ -38,8 +36,18 @@ export function isNearCameo(scene: SceneId, x: number, z: number, cameo: CameoSt
   return scene === "interior" && z < -36 && Math.hypot(x - cameo.x, z - cameo.z) <= CAMEO.interactionDistance;
 }
 
+export function beginSlap(scene: SceneId, player: CharacterMotion, cameo: CameoState) {
+  if (cameo.slapTime !== null || !isNearCameo(scene, player.x, player.z, cameo)) return false;
+  // Face each other once; neither actor tracks or slides after the cartoon fall.
+  player.facing = Math.atan2(cameo.x - player.x, cameo.z - player.z);
+  cameo.facing = Math.atan2(player.x - cameo.x, player.z - cameo.z);
+  cameo.slapTime = 0;
+  cameo.walkBlend = 0;
+  return true;
+}
+
 export function interactionTarget(scene: SceneId, x: number, z: number, cameo: CameoState): InteractionTarget {
   if (isNearDoor(scene, x, z)) return "door";
-  if (cameo.greetingRemaining <= 0 && isNearCameo(scene, x, z, cameo)) return "cameo";
+  if (cameo.slapTime === null && isNearCameo(scene, x, z, cameo)) return "cameo";
   return null;
 }

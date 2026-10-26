@@ -1,12 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import type {} from "../../src/components/experience/SceneTestBridge";
-import { CAMEO } from "../../src/lib/cameo";
+import { checkCartoonSlap, installSlapAudioProbe } from "./slap-check";
 
 test("desktop: real WebGL, keyboard walking, collision, connected rooms and return", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => { if (message.type() === "error" && /THREE|WebGL|shader/i.test(message.text())) errors.push(message.text()); });
+  await installSlapAudioProbe(page);
   await page.goto("/");
   await expect(page.locator('[data-ready="true"]')).toBeVisible({ timeout: 120_000 });
   await expect(page.getByRole("heading", { name: "Az Országház", exact: true })).toBeVisible();
@@ -72,15 +73,7 @@ test("desktop: real WebGL, keyboard walking, collision, connected rooms and retu
   await page.screenshot({ path: "artifacts/interior-chamber.png" });
   const npc = (await page.evaluate(() => window.__parliamentTest!.snapshot())).cameo!;
   await expect.poll(async () => { const p = (await page.evaluate(() => window.__parliamentTest!.snapshot())).cameo!; return Math.hypot(p.x - npc.x, p.z - npc.z); }).toBeGreaterThan(0.1);
-  await page.evaluate(() => { const n = window.__parliamentTest!.snapshot().cameo!; return window.__parliamentTest!.place(n.x, n.z + 2.1); });
-  await expect(page.getByRole("button", { name: /megszólításhoz/ })).toBeVisible();
-  await page.keyboard.press("e");
-  await expect(page.getByTestId("cameo-speech")).toContainText(CAMEO.line);
-  await expect.poll(async () => (await page.evaluate(() => window.__parliamentTest!.snapshot())).cameo!.wave).toBeGreaterThan(1.2);
-  await expect.poll(async () => (await page.evaluate(() => window.__parliamentTest!.snapshot())).cameo!.walking).toBe(false);
-  await page.keyboard.press("e");
-  await expect(page.locator('[data-scene="interior"]')).toBeVisible();
-  await page.screenshot({ path: "artifacts/cameo-conversation.png" });
+  await checkCartoonSlap(page, false, "artifacts/desktop-cartoon-slap.png");
 
   await page.evaluate(() => window.__parliamentTest!.place(0, 8.6, Math.PI));
   await expect(page.getByRole("button", { name: "E Kilépés az Országházból" })).toBeVisible();
@@ -93,7 +86,7 @@ test("desktop: real WebGL, keyboard walking, collision, connected rooms and retu
   expect(Math.abs(outside.y - 1.44)).toBeLessThan(0.1);
   expect(outside.avatar.visible).toBe(true);
   expect(outside.camera.clear).toBe(true);
-  await expect(page.getByTestId("cameo-speech")).not.toBeVisible();
+  await expect(page.getByTestId("cameo-reaction")).not.toBeVisible();
 
   await page.evaluate(() => window.__parliamentTest!.place(-53, 25, Math.PI / 2, 0.03));
   await expect(page.getByText("Duna-part", { exact: true })).toBeVisible();

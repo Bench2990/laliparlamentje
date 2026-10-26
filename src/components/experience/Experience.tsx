@@ -6,7 +6,8 @@ import * as THREE from "three";
 import { useDevice } from "@/hooks/useDevice";
 import { clearInput, createInput } from "@/lib/input";
 import { INITIAL_SPAWN, SPAWNS, type SceneId, type Spawn } from "@/lib/world";
-import { CAMEO, createCameo, interactionTarget, resetCameo, type InteractionTarget } from "@/lib/cameo";
+import { beginSlap, createCameo, interactionTarget, resetCameo, type InteractionTarget } from "@/lib/cameo";
+import { createSlapAudio } from "@/lib/slap-audio";
 import ExteriorScene from "@/components/world/ExteriorScene";
 import InteriorScene from "@/components/interior/InteriorScene";
 import ParliamentCameo from "@/components/interior/ParliamentCameo";
@@ -69,7 +70,7 @@ export default function Experience() {
   const [scene, setScene] = useState<SceneId>("exterior");
   const [spawn, setSpawn] = useState<Spawn>(INITIAL_SPAWN);
   const [target, setTarget] = useState<InteractionTarget>(null);
-  const [speaking, setSpeaking] = useState(false);
+  const [slapping, setSlapping] = useState(false);
   const [location, setLocation] = useState("Kossuth Lajos tér");
   const [phase, setPhase] = useState<TransitionPhase>(null);
   const [settings, setSettings] = useState(false);
@@ -80,7 +81,9 @@ export default function Experience() {
   const [contextLost, setContextLost] = useState(false);
   const input = useMemo(createInput, []);
   const cameo = useMemo(createCameo, []);
-  const onSpeechEnd = useCallback(() => setSpeaking(false), []);
+  const slapAudio = useMemo(createSlapAudio, []);
+  const onSlapEnd = useCallback(() => setSlapping(false), []);
+  const onSlapImpact = useCallback(() => slapAudio.play(), [slapAudio]);
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const transitioning = useRef(false);
   const awaitingArrival = useRef(false);
@@ -100,6 +103,8 @@ export default function Experience() {
   useEffect(() => {
     if (!started) setSpawn(mobile ? { ...INITIAL_SPAWN, yaw: 1.43, pitch: 0.025 } : INITIAL_SPAWN);
   }, [mobile, started]);
+
+  useEffect(() => () => slapAudio.dispose(), [slapAudio]);
 
   useEffect(() => {
     const lockChange = () => { setLocked(document.pointerLockElement === canvas.current); clearInput(input); };
@@ -126,13 +131,14 @@ export default function Experience() {
     } catch { setDragLook(true); }
   }, [mobile]);
 
-  const interact = useCallback(() => {
+  const interact = useCallback((requested: NonNullable<InteractionTarget>) => {
     // Recheck the character position, never the following camera or a stale prompt.
     if (!playing || transitioning.current) return;
     const selected = interactionTarget(scene, input.x, input.z, cameo);
-    if (selected === "cameo") {
-      cameo.greetingRemaining = CAMEO.greetingDuration;
-      setSpeaking(true);
+    if (selected !== requested) return;
+    if (selected === "cameo" && beginSlap(scene, input, cameo)) {
+      slapAudio.prepare();
+      setSlapping(true);
       setTarget(null);
       return;
     }
@@ -140,7 +146,7 @@ export default function Experience() {
     transitioning.current = true;
     clearInput(input);
     setTarget(null);
-    setSpeaking(false);
+    setSlapping(false);
     setPhase("out");
     const destination: SceneId = scene === "exterior" ? "interior" : "exterior";
     timers.current.push(setTimeout(() => {
@@ -150,11 +156,14 @@ export default function Experience() {
       setSpawn(SPAWNS[destination]);
       setLocation(destination === "interior" ? "Díszlépcsőház" : "Az Országház főbejárata");
     }, 430));
-  }, [input, cameo, playing, scene]);
+  }, [input, cameo, slapAudio, playing, scene]);
 
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
-      if (event.code === "KeyE" && !event.repeat) { event.preventDefault(); interact(); }
+      if ((event.code === "KeyE" || event.code === "KeyF") && !event.repeat) {
+        event.preventDefault();
+        interact(event.code === "KeyE" ? "door" : "cameo");
+      }
       if (event.code === "Escape" && started && !settings) {
         if (document.pointerLockElement) document.exitPointerLock();
         setDragLook(false);
@@ -191,7 +200,7 @@ export default function Experience() {
         }}
       >
         {scene === "exterior" ? <ExteriorScene lowQuality={lowQuality} /> : <InteriorScene lowQuality={lowQuality} />}
-        {scene === "interior" && <ParliamentCameo cameo={cameo} input={input} active={playing} speaking={speaking} onSpeechEnd={onSpeechEnd} />}
+        {scene === "interior" && <ParliamentCameo cameo={cameo} input={input} active={playing} slapping={slapping} onSlapImpact={onSlapImpact} onSlapEnd={onSlapEnd} />}
         <PlayerController scene={scene} spawn={spawn} input={input} cameo={cameo} started={started} active={playing} dragLook={dragLook} onStatus={onStatus} />
         <RenderTuning scene={scene} mobile={mobile} lowQuality={lowQuality} onReady={onReady} onDprChange={setRenderDpr} />
         {process.env.NEXT_PUBLIC_E2E === "1" && <SceneTestBridge scene={scene} input={input} cameo={cameo} />}
@@ -203,7 +212,7 @@ export default function Experience() {
       {started && <>
         <GameHUD location={location} mobile={mobile} interior={scene === "interior"} dragLook={dragLook} />
         {mobile && <><MobileLookControls input={input} enabled={playing} /><MobileJoystick input={input} enabled={playing} /></>}
-        {target && playing && <InteractionButton scene={scene} target={target} mobile={mobile} onInteract={interact} />}
+        {target && playing && <InteractionButton scene={scene} target={target} mobile={mobile} onInteract={() => interact(target)} />}
         {!mobile && !locked && !dragLook && !settings && !phase && <div className="pause-overlay"><div className="pause-card"><span className="eyebrow">NINCS MIÉRT SIETNED</span><h2>A tér megvár.</h2><p>Kattints a folytatáshoz. Az Esc billentyűvel<br />bármikor elengedheted az egeret.</p><button className="start-button" onClick={requestLook}><span>Séta folytatása</span><ArrowIcon /></button></div></div>}
       </>}
       {settings && <SettingsPanel quality={quality} onQuality={setQuality} onClose={closeSettings} mobile={mobile} />}

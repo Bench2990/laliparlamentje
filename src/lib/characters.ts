@@ -5,7 +5,6 @@ export type CharacterMotion = {
   facing: number;
   walkPhase: number;
   walkBlend: number;
-  wave: number;
 };
 
 export function turnTowards(current: number, target: number, blend: number) {

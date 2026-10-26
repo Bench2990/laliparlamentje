@@ -115,10 +115,11 @@ kbd { font-family: inherit; font-size: 8px; min-width: 18px; height: 20px; paddi
 .webgl-fallback p { font-size: 12px; max-width: 420px; line-height: 1.8; margin-bottom: 28px; }
 .cameo-name { white-space: nowrap; border: 1px solid #c3a46b85; border-radius: 20px; background: #f5ecd8e8; color: #3a4034; padding: 6px 11px; font-size: 11px; box-shadow: 0 3px 16px #30251320; }
 .cameo-name span { font-size: 8px; color: #817257; }
-.cameo-speech { position: relative; width: min(250px, calc(100vw - 44px)); transform: translateY(-50%); padding: 15px 18px; border: 1px solid #c9a66c; background: #fbf3e2f5; color: #354238; border-radius: 8px; box-shadow: 0 8px 30px #342a3433; text-align: center; }
-.cameo-speech::after { content: ""; position: absolute; width: 12px; height: 12px; left: calc(50% - 6px); bottom: -7px; background: #fbf3e2; border-right: 1px solid #c9a66c; border-bottom: 1px solid #c9a66c; transform: rotate(45deg); }
-.cameo-speech > span { display: block; font-size: 7px; font-weight: 600; letter-spacing: .12em; color: #967a4a; }
-.cameo-speech p { margin: 9px 0 0; font-family: "Cormorant Garamond", Georgia, serif; font-size: 23px; line-height: 1.12; }
+.cameo-reaction { position: relative; width: min(250px, calc(100vw - 44px)); transform: translateY(-50%); padding: 15px 18px; border: 1px solid #c9a66c; background: #fbf3e2f5; color: #354238; border-radius: 8px; box-shadow: 0 8px 30px #342a3433; text-align: center; }
+.cameo-reaction::after { content: ""; position: absolute; width: 12px; height: 12px; left: calc(50% - 6px); bottom: -7px; background: #fbf3e2; border-right: 1px solid #c9a66c; border-bottom: 1px solid #c9a66c; transform: rotate(45deg); }
+.cameo-reaction > span { display: block; font-size: 7px; font-weight: 600; letter-spacing: .12em; color: #967a4a; text-transform: uppercase; }
+.cameo-reaction p { margin: 9px 0; font-family: "Cormorant Garamond", Georgia, serif; font-size: 23px; font-weight: 600; line-height: 1.12; }
+.cameo-reaction small { display: block; font-size: 8px; line-height: 1.5; color: #817257; }
 @keyframes loading { 0% { transform: translateX(-100%); } 100% { transform: translateX(360%); } }
 @keyframes welcome-in { from { opacity: 0; translate: 0 14px; } to { opacity: 1; translate: 0 0; } }
 @keyframes prompt-in { from { opacity: 0; margin-bottom: -8px; } to { opacity: 1; margin-bottom: 0; } }

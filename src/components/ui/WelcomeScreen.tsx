@@ -19,7 +19,7 @@ export default function WelcomeScreen({ mobile, ready, onStart }: { mobile: bool
         <div><span>PEST, A DUNA PARTJÁN</span><p>Egy egészen új nézőpont.</p></div>
       </div>
       <footer className="welcome-footer">
-        <div className="launch-controls">{mobile ? <><span className="control-dot" />Bal joystick – Séta <b>·</b> Jobb oldal – Kamera forgatása</> : <><span className="key-cluster"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>Séta</span><b>·</b><span>Egér – Kamera forgatása</span><b>·</b><kbd>E</kbd><span>Interakció</span></>}</div>
+        <div className="launch-controls">{mobile ? <><span className="control-dot" />Bal joystick – Séta <b>·</b> Jobb oldal – Kamera forgatása</> : <><span className="key-cluster"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>Séta</span><b>·</b><span>Egér – Kamera forgatása</span><b>·</b><kbd>E</kbd><span>Ajtó</span><b>·</b><kbd>F</kbd><span>Pofon 👋</span></>}</div>
         <span className="footer-coordinates">47°30′25″ É &nbsp; 19°02′44″ K</span>
       </footer>
     </section>

@@ -18,7 +18,7 @@ export function createInput(): InputState {
     keys: new Set(), moveX: 0, moveY: 0, lookX: 0, lookY: 0,
     x: INITIAL_SPAWN.position[0], y: 0, z: INITIAL_SPAWN.position[2],
     yaw: INITIAL_SPAWN.yaw, pitch: FOLLOW_CAMERA.defaultPitch,
-    facing: INITIAL_SPAWN.yaw + Math.PI, walkPhase: 0, walkBlend: 0, wave: 0,
+    facing: INITIAL_SPAWN.yaw + Math.PI, walkPhase: 0, walkBlend: 0,
     snapCamera: true,
   };
 }
