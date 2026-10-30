@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import type {} from "../../src/components/experience/SceneTestBridge";
 import { checkCartoonSlap, installSlapAudioProbe } from "./slap-check";
+import { checkRiverfrontPhoneThrow } from "./riverfront-check";
 
 test("WebKit/iPhone viewport: rendering, captured-pointer controls, enter and exit", async ({ page }) => {
   const errors: string[] = [];
@@ -28,13 +29,16 @@ test("WebKit/iPhone viewport: rendering, captured-pointer controls, enter and ex
   await page.mouse.up();
   await expect.poll(async () => Math.abs((await page.evaluate(() => window.__parliamentTest!.snapshot())).yaw - beforeLook.yaw)).toBeGreaterThan(0.05);
   await expect.poll(async () => Math.abs((await page.evaluate(() => window.__parliamentTest!.snapshot())).pitch - beforeLook.pitch)).toBeGreaterThan(0.01);
+  await checkRiverfrontPhoneThrow(page, true, "artifacts/webkit-phone-throw.png");
   await page.evaluate(() => window.__parliamentTest!.place(44.5, 0, Math.PI / 2));
   await page.getByRole("button", { name: "Belépés", exact: true }).tap();
   await expect(page.locator('[data-scene="interior"][data-transition="idle"]')).toBeVisible();
+  expect((await page.evaluate(() => window.__parliamentTest!.snapshot())).riverfront).toBeNull();
   await checkCartoonSlap(page, true, "artifacts/webkit-cartoon-slap.png");
   await page.evaluate(() => window.__parliamentTest!.place(0, 8.6, Math.PI));
   await page.getByRole("button", { name: "Kilépés", exact: true }).tap();
   await expect(page.locator('[data-scene="exterior"][data-transition="idle"]')).toBeVisible();
+  expect((await page.evaluate(() => window.__parliamentTest!.snapshot())).riverfront?.phone.count).toBe(1);
   await page.setViewportSize({ width: 844, height: 390 });
   await expect(page.getByTestId("joystick")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)).toBe(true);

@@ -1,6 +1,6 @@
 # Az Országház
 
-A browser-based, third-person architectural walk around a stylized Hungarian Parliament, Kossuth Lajos Square, and the Danube embankment. Includes a connected, walkable interpretation of the Parliament interior, a personalized entrance plaque, and a harmless fictional political-figure cameo. All visitor-facing text is Hungarian.
+A browser-based, third-person architectural walk around a stylized Hungarian Parliament, Kossuth Lajos Square, and the Danube embankment. Includes a connected, walkable interpretation of the Parliament interior, a personalized entrance plaque, and harmless fictional political-figure cameos. All visitor-facing text is Hungarian.
 
 ## Run locally
 
@@ -36,7 +36,7 @@ Deploy the repository to **Vercel**, select its Next.js preset, and use the defa
 - The follow camera retracts before walls, columns, room corners, and the river boundary. In very tight spaces it uses a short elevated view instead of going inside the avatar. Drag vertically to inspect the upper facade or ceilings.
 - The settings button changes rendering quality without restarting the walk.
 - Follow the paths around either end of the Parliament to reach the riverfront. Water and major buildings are impassable.
-- Desktop and mobile share the **9.2 m/s** maximum movement speed in `src/lib/world.ts`; the joystick retains proportional analog speed and collision substeps remain enabled.
+- Desktop and mobile share the **13.8 m/s** maximum movement speed in `src/lib/world.ts` (**9.2 × 1.5**, a 50% increase). The distance-driven walking cadence is also 50% faster; smooth acceleration, analog joystick speed, camera damping, and collision substeps are retained.
 
 ## Personalized additions
 
@@ -44,6 +44,8 @@ Deploy the repository to **Vercel**, select its Next.js preset, and use the defa
 - The chamber's **Orbán-inspired Viktor caricature** slowly walks a furniture-free loop. Within 1.65 m, **F / Pofon 👋** starts an exaggerated, non-graphic cartoon gag: the player swings an open hand for 0.68 seconds; the NPC wobbles, falls backwards, rests on the floor for 1.75 seconds with orbiting stars, then stands and resumes the same route. The full sequence lasts 4.8 seconds. There is no blood, injury, damage, authentic quote, or political persuasion.
 - A locally synthesized comic clap/boing plays once at the arm's impact. Web Audio is unlocked by the activating key/tap, needs no remote files, and degrades silently if unavailable. Device volume/silent mode still applies.
 - The NPC pauses rather than walking into the visitor. The interaction rechecks proximity, rejects repeated activation for the whole reaction, pauses with the game/settings, and resets on scene changes. The player only pauses movement during the short arm swing; camera/mobile controls and separate **E** door interactions are retained. A lightweight collision footprint follows the reclining body.
+- A **Magyar Péter-inspired fictional caricature** stands on the upper Danube promenade near the central river-facing facade, facing the river, clear of the railing, benches, and main walking path. Short brown hair, a navy smart-casual jacket, and an open-collar shirt match the existing low-poly style. This NPC has **no dialogue, prompts, or interaction**.
+- Every **6.2 seconds**, he takes a phone from his pocket, studies it, winds up, and makes an exaggerated cartoon throw. One independent phone object follows the palm until release, tumbles along a parabolic arc over the railing, and disappears at the water. Eight reused splash droplets and an expanding ripple briefly mark the landing. All objects are reused, the animation pauses with the game/settings, and scene unmounting disposes its resources. This is a playful fictional gag, not a depiction of an actual event.
 
 ## Architecture and assets
 
@@ -78,6 +80,7 @@ src/lib/characters.ts        Character motion data and shortest-angle turning
 src/lib/cameo.ts             Safe NPC path and proximity/re-entry guards
 src/lib/slap.ts              Shared cartoon timeline and procedural animation poses
 src/lib/slap-audio.ts        User-gesture-unlocked, synthesized clap/boing
+src/lib/magyar.ts             Stationary riverfront cameo and looping phone-throw poses/arc
 tests/                       Unit and real-browser WebGL tests
 ```
 
@@ -103,7 +106,7 @@ npm run build
 npm run test:production
 ```
 
-Browser tests start an isolated dev server on port **3100**, exercise actual WebGL rendering, third-person movement/animation, camera obstruction, entrance-sign visibility, the complete slap/fall/recovery cycle, single Web Audio playback, repeated-input rejection, Chromium mobile multitouch, touch cancellation, both door transitions, and portrait/landscape/settings. A WebKit test also checks rendering and the full slap interaction in an iPhone viewport. These are engine/emulation checks, not certification on physical phones. Screenshots are written to the ignored `artifacts/` directory. Browser diagnostics and traces on failure are stored in `test-results/`.
+Browser tests start an isolated dev server on port **3100**, exercise actual WebGL rendering, measured faster movement and walking cadence, camera obstruction, entrance-sign visibility, the complete slap/fall/recovery cycle, single Web Audio playback, repeated-input rejection, Chromium mobile multitouch, touch cancellation, both door transitions, and portrait/landscape/settings. Desktop Chromium, Android-emulated Chromium, and iPhone-viewport WebKit also verify the upper-bank NPC, palm-to-flight continuity, river-directed throws, splash/ripple, repeated animation cycles, fixed phone identity/object count, stable geometry/texture counts, pause behavior, and absence of interaction prompts. These are engine/emulation checks, not certification on physical phones. Screenshots are written to the ignored `artifacts/` directory. Browser diagnostics and traces on failure are stored in `test-results/`.
 
 The Windows Playwright WebKit build does not expose `AudioContext`; that engine checks the silent fallback, while desktop/Android-emulated Chromium checks actual audio playback. Verify sound on a physical iPhone with silent mode off before relying on iOS audio certification.
 

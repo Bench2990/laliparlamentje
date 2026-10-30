@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import type {} from "../../src/components/experience/SceneTestBridge";
 import { checkCartoonSlap, installSlapAudioProbe } from "./slap-check";
+import { checkMovementSpeed } from "./movement-check";
+import { checkRiverfrontPhoneThrow } from "./riverfront-check";
 
 test("desktop: real WebGL, keyboard walking, collision, connected rooms and return", async ({ page }) => {
   const errors: string[] = [];
@@ -27,6 +29,7 @@ test("desktop: real WebGL, keyboard walking, collision, connected rooms and retu
   await page.keyboard.down("w");
   await expect.poll(async () => start.x - (await page.evaluate(() => window.__parliamentTest!.snapshot())).x, { timeout: 15000 }).toBeGreaterThan(1.2);
   await expect.poll(async () => Math.abs((await page.evaluate(() => window.__parliamentTest!.snapshot())).avatar.leftLeg)).toBeGreaterThan(0.04);
+  await checkMovementSpeed(page);
   await page.keyboard.up("w");
   const moved = await page.evaluate(() => window.__parliamentTest!.snapshot());
   expect(start.x - moved.x).toBeGreaterThan(1);
@@ -55,6 +58,7 @@ test("desktop: real WebGL, keyboard walking, collision, connected rooms and retu
   await expect(page.locator('[data-transition="idle"]')).toBeVisible();
   await expect(page.locator(".scene-transition")).toHaveCSS("opacity", "0");
   await expect(page.getByText("Díszlépcsőház", { exact: true })).toBeVisible();
+  expect((await page.evaluate(() => window.__parliamentTest!.snapshot())).riverfront).toBeNull();
   await page.screenshot({ path: "artifacts/interior-entrance.png" });
   await page.evaluate(() => window.__parliamentTest!.place(13, 0, Math.PI / 2));
   const closeCamera = await page.evaluate(() => window.__parliamentTest!.snapshot());
@@ -86,6 +90,7 @@ test("desktop: real WebGL, keyboard walking, collision, connected rooms and retu
   expect(Math.abs(outside.y - 1.44)).toBeLessThan(0.1);
   expect(outside.avatar.visible).toBe(true);
   expect(outside.camera.clear).toBe(true);
+  expect(outside.riverfront?.phone.count).toBe(1);
   await expect(page.getByTestId("cameo-reaction")).not.toBeVisible();
 
   await page.evaluate(() => window.__parliamentTest!.place(-53, 25, Math.PI / 2, 0.03));
@@ -97,6 +102,7 @@ test("desktop: real WebGL, keyboard walking, collision, connected rooms and retu
   const river = await page.evaluate(() => window.__parliamentTest!.snapshot());
   expect(river.x).toBeGreaterThanOrEqual(-61.62);
   expect(river.x).toBeLessThan(-59);
+  await checkRiverfrontPhoneThrow(page, false, "artifacts/desktop-phone-throw.png");
   await page.evaluate(() => window.__parliamentTest!.place(-53, 125, -0.41, 0.14));
   await page.waitForTimeout(400);
   await page.screenshot({ path: "artifacts/river-facade.png" });

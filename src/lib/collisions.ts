@@ -1,4 +1,5 @@
 import { BENCHES, CITY_BLOCKS, TREES, WALK, type SceneId } from "./world";
+import { MAGYAR } from "./magyar";
 
 export type BoxCollider = { kind: "box"; minX: number; maxX: number; minZ: number; maxZ: number };
 export type CircleCollider = { kind: "circle"; x: number; z: number; radius: number };
@@ -32,6 +33,8 @@ export const EXTERIOR_COLLIDERS: Collider[] = [
   box(43, 54.5, 9.1, 10.2),
   box(50.2, 53.8, -11.1, -9),
   box(50.2, 53.8, 9, 11.1),
+  // A small stationary footprint beside the railing, not on the through path.
+  { kind: "circle", x: MAGYAR.x, z: MAGYAR.z, radius: MAGYAR.radius },
 ];
 
 export const INTERIOR_COLLIDERS: Collider[] = [

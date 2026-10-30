@@ -2,6 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import type {} from "../../src/components/experience/SceneTestBridge";
 import { checkCartoonSlap, installSlapAudioProbe } from "./slap-check";
+import { checkMovementSpeed } from "./movement-check";
+import { checkRiverfrontPhoneThrow } from "./riverfront-check";
 
 async function checkMobileLayout(page: Page) {
   const viewport = page.viewportSize()!;
@@ -61,12 +63,14 @@ for (const orientation of ["portrait", "landscape"] as const) {
     expect(during.avatar.walkBlend).toBeGreaterThan(0.2);
     expect(during.camera.clear).toBe(true);
     expect(during.calls).toBeLessThan(80);
+    await checkMovementSpeed(page, Math.hypot(during.moveX, during.moveY));
     await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
     await page.waitForTimeout(350);
     const stopped = await page.evaluate(() => window.__parliamentTest!.snapshot());
     expect(stopped.moveX).toBe(0);
     expect(stopped.moveY).toBe(0);
     await page.screenshot({ path: `artifacts/mobile-${orientation}-exploring.png` });
+    await checkRiverfrontPhoneThrow(page, true, `artifacts/mobile-${orientation}-phone-throw.png`);
 
     await page.evaluate(() => window.__parliamentTest!.place(59, 0, Math.PI / 2, -0.4));
     const sign = (await page.evaluate(() => window.__parliamentTest!.snapshot())).sign;
@@ -92,10 +96,12 @@ for (const orientation of ["portrait", "landscape"] as const) {
     await expect(page.locator(".scene-transition")).toHaveCSS("opacity", "0");
     await page.screenshot({ path: `artifacts/mobile-${orientation}-interior.png` });
     expect((await page.evaluate(() => window.__parliamentTest!.snapshot())).avatar.visible).toBe(true);
+    expect((await page.evaluate(() => window.__parliamentTest!.snapshot())).riverfront).toBeNull();
     await checkCartoonSlap(page, true, `artifacts/mobile-${orientation}-cartoon-slap.png`);
     await page.evaluate(() => window.__parliamentTest!.place(0, 8.6, Math.PI));
     await page.getByRole("button", { name: "Kilépés", exact: true }).tap();
     await expect(page.locator('[data-scene="exterior"][data-transition="idle"]')).toBeVisible();
+    expect((await page.evaluate(() => window.__parliamentTest!.snapshot())).riverfront?.phone.count).toBe(1);
     await expect(page.locator(".scene-transition")).toHaveCSS("opacity", "0");
     await page.setViewportSize(orientation === "portrait" ? { width: 851, height: 393 } : { width: 393, height: 851 });
     await checkMobileLayout(page);

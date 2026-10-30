@@ -199,7 +199,7 @@ export default function Experience() {
           gl.domElement.addEventListener("webglcontextlost", (event) => { event.preventDefault(); clearInput(input); setContextLost(true); });
         }}
       >
-        {scene === "exterior" ? <ExteriorScene lowQuality={lowQuality} /> : <InteriorScene lowQuality={lowQuality} />}
+        {scene === "exterior" ? <ExteriorScene lowQuality={lowQuality} active={playing} /> : <InteriorScene lowQuality={lowQuality} />}
         {scene === "interior" && <ParliamentCameo cameo={cameo} input={input} active={playing} slapping={slapping} onSlapImpact={onSlapImpact} onSlapEnd={onSlapEnd} />}
         <PlayerController scene={scene} spawn={spawn} input={input} cameo={cameo} started={started} active={playing} dragLook={dragLook} onStatus={onStatus} />
         <RenderTuning scene={scene} mobile={mobile} lowQuality={lowQuality} onReady={onReady} onDprChange={setRenderDpr} />

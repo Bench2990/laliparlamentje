@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Model, PALETTE as P } from "@/lib/model";
 import { bench, lamp } from "@/lib/street-furniture";
+import { DANUBE } from "@/lib/world";
 import StaticModel from "./StaticModel";
 
 const vertexShader = `
@@ -98,7 +99,7 @@ export default function Danube() {
   useFrame(({ clock }) => { if (water.current) water.current.uniforms.uTime.value = clock.getElapsedTime(); });
   return (
     <group>
-      <mesh position={[-264, -2.45, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[-264, DANUBE.waterHeight, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[398, 1800, 24, 72]} />
         <shaderMaterial ref={water} vertexShader={vertexShader} fragmentShader={fragmentShader} uniforms={uniforms} />
       </mesh>

@@ -1,13 +1,14 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { canOccupy, moveWithCollisions } from "../src/lib/collisions";
-import { DOORS, INITIAL_SPAWN, SPAWNS, WALK, floorHeight, isNearDoor, locationName, type SceneId } from "../src/lib/world";
+import { EXTERIOR_COLLIDERS, canOccupy, moveWithCollisions } from "../src/lib/collisions";
+import { DANUBE, DOORS, INITIAL_SPAWN, SPAWNS, WALK, floorHeight, isNearDoor, locationName, type SceneId } from "../src/lib/world";
 import { clearInput, createInput } from "../src/lib/input";
 import { FOLLOW_CAMERA, cameraPointIsClear, clipCameraBoom, followCameraPose } from "../src/lib/follow-camera";
 import { CAMEO, beginSlap, cameoRoute, createCameo, interactionTarget, resetCameo } from "../src/lib/cameo";
 import { turnTowards } from "../src/lib/characters";
 import { SLAP, advanceSlap, cameoSlapPose, playerSlapPose, slapPhase } from "../src/lib/slap";
 import { createSlapAudio } from "../src/lib/slap-audio";
+import { MAGYAR, PHONE_THROW, phoneHandPosition, phoneThrowPhase, phoneThrowPose, thrownPhonePosition } from "../src/lib/magyar";
 
 describe("safe spawns and door interaction", () => {
   it("starts in the square, with a clear view and no collision", () => {
@@ -82,7 +83,8 @@ describe("lightweight collisions", () => {
 
 describe("increased walking speed", () => {
   it("uses the requested shared maximum speed for desktop and mobile", () => {
-    assert.equal(WALK.speed, 9.2);
+    assert.equal(WALK.speed, 9.2 * 1.5);
+    assert.equal(WALK.animationSpeed, 3.3 * 1.5);
   });
   it("keeps full-speed and analog movement consistent across frame rates", () => {
     for (const fps of [10, 30, 60, 120]) {
@@ -91,7 +93,7 @@ describe("increased walking speed", () => {
         for (let frame = 0; frame < fps; frame++) {
           position = moveWithCollisions("exterior", position.x, position.z, -WALK.speed * analog / fps, 0);
         }
-        assert.ok(Math.abs(position.x - (145 - 9.2 * analog)) < 1e-8, `${fps} fps, analog ${analog}`);
+        assert.ok(Math.abs(position.x - (145 - 9.2 * 1.5 * analog)) < 1e-8, `${fps} fps, analog ${analog}`);
         assert.equal(position.z, 20);
       }
     }
@@ -100,6 +102,7 @@ describe("increased walking speed", () => {
     const routes: { scene: SceneId; x: number; z: number; dx: number; dz: number }[] = [
       { scene: "exterior", x: 44.5, z: 0, dx: -1, dz: 0 },
       { scene: "exterior", x: -60, z: 25, dx: -1, dz: 0 },
+      { scene: "exterior", x: MAGYAR.x + 2, z: MAGYAR.z, dx: -1, dz: 0 },
       { scene: "interior", x: 0, z: 9, dx: 0, dz: 1 },
       { scene: "interior", x: 0, z: -66, dx: 0, dz: -1 },
       { scene: "interior", x: 4.2, z: -21, dx: 0, dz: -1 },
@@ -114,6 +117,77 @@ describe("increased walking speed", () => {
         assert.ok(Math.hypot(position.x - route.x, position.z - route.z) < 3, `tunneled past obstacle at ${fps} fps`);
       }
     }
+  });
+});
+
+describe("fictional riverfront phone-throwing cameo", () => {
+  it("stands on the upper bank facing the water, clear of railing and furniture", () => {
+    assert.equal(floorHeight("exterior", MAGYAR.x, MAGYAR.z), 0);
+    assert.equal(MAGYAR.facing, -Math.PI / 2);
+    assert.ok(MAGYAR.x - MAGYAR.radius > DANUBE.railingX + 0.5);
+    for (const collider of EXTERIOR_COLLIDERS) {
+      if (collider.kind === "circle" && collider.x === MAGYAR.x && collider.z === MAGYAR.z) continue;
+      const distance = collider.kind === "circle"
+        ? Math.hypot(MAGYAR.x - collider.x, MAGYAR.z - collider.z) - collider.radius
+        : Math.hypot(MAGYAR.x - Math.max(collider.minX, Math.min(MAGYAR.x, collider.maxX)), MAGYAR.z - Math.max(collider.minZ, Math.min(MAGYAR.z, collider.maxZ)));
+      assert.ok(distance > MAGYAR.radius);
+    }
+    for (let z = -110; z <= 110; z += 0.5) assert.ok(canOccupy("exterior", -54, z), `main promenade blocked at ${z}`);
+    assert.equal(canOccupy("exterior", MAGYAR.x, MAGYAR.z), false);
+  });
+
+  it("never exposes a door or slap interaction near the riverfront NPC", () => {
+    for (const dx of [-0.6, 0, 0.6, 1.5]) {
+      assert.equal(interactionTarget("exterior", MAGYAR.x + dx, MAGYAR.z, createCameo()), null);
+    }
+  });
+
+  it("takes out, looks, winds up, throws, splashes and pauses every 6.2 seconds", () => {
+    assert.ok(PHONE_THROW.duration >= 5 && PHONE_THROW.duration <= 7);
+    for (const fps of [10, 30, 60, 120]) {
+      const phases = new Set<string>();
+      for (let frame = 0; frame < PHONE_THROW.duration * fps; frame++) phases.add(phoneThrowPhase(frame / fps));
+      assert.deepEqual([...phases], ["pause", "take-out", "look", "windup", "throw", "flight", "splash"]);
+    }
+    for (const t of [0, 0.75, 1.5, 2, 2.4, 3.2, 4.5, 5.5]) {
+      for (const cycle of [1, 10, 1000]) {
+        assert.equal(phoneThrowPhase(t + PHONE_THROW.duration * cycle), phoneThrowPhase(t));
+        const a = thrownPhonePosition(t);
+        const b = thrownPhonePosition(t + PHONE_THROW.duration * cycle);
+        assert.ok(a.every((value, index) => Math.abs(value - b[index]) < 1e-8));
+      }
+    }
+    assert.deepEqual(phoneThrowPose(0), phoneThrowPose(PHONE_THROW.duration));
+  });
+
+  it("starts flight at the palm with no teleport, and follows a visible parabola", () => {
+    const origin = phoneHandPosition(phoneThrowPose(PHONE_THROW.release));
+    assert.deepEqual(thrownPhonePosition(PHONE_THROW.release), origin);
+    const justBefore = thrownPhonePosition(PHONE_THROW.release - 0.00001);
+    assert.ok(origin.every((value, index) => Math.abs(value - justBefore[index]) < 0.001));
+    const midpoint = thrownPhonePosition(PHONE_THROW.release + PHONE_THROW.flightDuration / 2);
+    assert.ok(Math.abs(midpoint[1] - ((origin[1] + DANUBE.waterHeight) / 2 + PHONE_THROW.arcHeight)) < 1e-8);
+    assert.ok(midpoint[1] > 3);
+    let previousX: number = MAGYAR.x;
+    for (let step = 0; step <= 100; step++) {
+      const position = thrownPhonePosition(PHONE_THROW.release + PHONE_THROW.flightDuration * step / 100);
+      const worldX = MAGYAR.x - position[2];
+      assert.ok(worldX < previousX);
+      previousX = worldX;
+      if (Math.abs(worldX - DANUBE.railingX) < 0.2) assert.ok(position[1] > 1.7, "phone clips railing");
+    }
+    const impact = thrownPhonePosition(PHONE_THROW.release + PHONE_THROW.flightDuration);
+    assert.deepEqual(impact, PHONE_THROW.landing);
+    assert.ok(MAGYAR.x - impact[2] < DANUBE.waterEdgeX - 1);
+    assert.equal(impact[1], DANUBE.waterHeight);
+  });
+
+  it("lands in water visible over the stone embankment from the normal follow camera", () => {
+    const { position } = followCameraPose("exterior", -54, 0, 21, Math.PI / 2, FOLLOW_CAMERA.defaultPitch);
+    const landingX = MAGYAR.x - PHONE_THROW.landing[2];
+    const sightlineHeight = (x: number) => position[1] + (DANUBE.waterHeight + 0.08 - position[1]) * (x - position[0]) / (landingX - position[0]);
+    assert.ok(sightlineHeight(-64.7) > 0.55, "stone ledge hides the splash");
+    for (const railHeight of [0.55, 1.35]) assert.ok(Math.abs(sightlineHeight(DANUBE.railingX) - railHeight) > 0.08, "rail hides the splash");
   });
 });
 

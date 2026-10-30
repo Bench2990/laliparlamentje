@@ -126,9 +126,11 @@ export default function PlayerController({ scene, spawn, input, cameo, started, 
       input.y = floorHeight(scene, next.x, next.z);
       input.z = next.z;
     }
-    const walking = dt > 0 ? Math.min(1, travelled / dt / 3.3) : 0;
+    const walking = dt > 0 ? Math.min(1, travelled / dt / WALK.animationSpeed) : 0;
     input.walkBlend += (walking - input.walkBlend) * (1 - Math.exp(-12 * dt));
-    input.walkPhase += Math.min(travelled, dt * 3.3) * 3;
+    // Keep the distance-driven gait's cadence 50% faster too, without animating
+    // footsteps into walls or making full-speed legs spin unnaturally quickly.
+    input.walkPhase += Math.min(travelled, dt * WALK.animationSpeed) * 3;
     if (started) {
       const pose = followCameraPose(scene, input.x, input.y, input.z, input.yaw, input.pitch);
       if (input.snapCamera) {

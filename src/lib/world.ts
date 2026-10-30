@@ -5,13 +5,20 @@ export type Spawn = { position: Position3; yaw: number; pitch: number };
 // Metres. +X = east, +Z = south. The Parliament's long axis runs north–south.
 export const WALK = {
   eyeHeight: 1.7,
-  speed: 9.2,
+  speed: 9.2 * 1.5,
+  animationSpeed: 3.3 * 1.5,
   radius: 0.38,
   acceleration: 11,
   mouseSensitivity: 0.0018,
   touchSensitivity: 0.0032,
   maxPitch: 1.32,
   interactionDistance: 2.85,
+} as const;
+
+export const DANUBE = {
+  waterHeight: -2.45,
+  waterEdgeX: -65,
+  railingX: -62.8,
 } as const;
 
 export const INITIAL_SPAWN: Spawn = {
